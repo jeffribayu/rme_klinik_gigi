@@ -4,9 +4,9 @@ import '../loadEnv.js';
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER || 'root',
+  user: process.env.DB_USER || process.env.DB_USERNAME || 'root',
   password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'rme_klinik_gigi',
+  database: process.env.DB_NAME || process.env.DB_DATABASE || 'rme_klinik_gigi',
   waitForConnections: true,
   connectionLimit: 10,
 });
