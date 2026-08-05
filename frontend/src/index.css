@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Nuansa dental: teal–cyan–mint, kontras jelas & terasa hidup */
+    --background: 187 45% 97%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 172 66% 38%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 166 78% 94%;
+    --secondary-foreground: 172 58% 22%;
+    --muted: 186 32% 94%;
+    --muted-foreground: 215 18% 42%;
+    --accent: 168 85% 92%;
+    --accent-foreground: 172 58% 24%;
+    --border: 186 28% 88%;
+    --input: 186 28% 88%;
+    --ring: 172 66% 42%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222 47% 7%;
+    --foreground: 186 30% 96%;
+    --card: 222 38% 11%;
+    --card-foreground: 186 30% 96%;
+    --popover: 222 38% 11%;
+    --popover-foreground: 186 30% 96%;
+    --primary: 168 72% 48%;
+    --primary-foreground: 222 47% 8%;
+    --secondary: 172 35% 18%;
+    --secondary-foreground: 166 40% 92%;
+    --muted: 220 25% 16%;
+    --muted-foreground: 215 16% 62%;
+    --accent: 172 40% 18%;
+    --accent-foreground: 166 45% 95%;
+    --border: 220 22% 24%;
+    --input: 220 22% 24%;
+    --ring: 168 72% 50%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* Cetak: odontogram interaktif (area chart) + laporan odontogram (satu halaman) */
+@media print {
+  html,
+  body {
+    height: auto !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .odontogram-print-scope,
+  .odontogram-print-scope *,
+  .odontogram-report-print-area,
+  .odontogram-report-print-area * {
+    visibility: visible;
+  }
+
+  /* Chart interaktif — tetap absolute */
+  .odontogram-print-scope {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Laporan: alur normal agar tidak terpotong jadi 2 halaman */
+  .odontogram-report-print-area {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 5mm 6mm !important;
+    border: none !important;
+    box-shadow: none !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+}
+
+/* Pratinjau html5-qrcode: video mengisi kotak tanpa bar hitam di bawah */
+.attendance-qr-root video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  object-position: center top;
+}
