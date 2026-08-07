@@ -8,6 +8,9 @@ export const loginLimiter = rateLimit({
   max,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: {
+    xForwardedForHeader: false,
+  },
   message: {
     success: false,
     message: 'Terlalu banyak percobaan login. Coba lagi nanti.',
