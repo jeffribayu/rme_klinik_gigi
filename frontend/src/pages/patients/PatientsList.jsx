@@ -95,8 +95,8 @@ export default function PatientsList() {
       const { data } = await api.get(`/api/v1/patients?${params}`);
       setList(data.data);
       setMeta(data.meta);
-    } catch {
-      toast.error('Gagal memuat pasien');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Gagal memuat pasien');
     } finally {
       setLoading(false);
     }
