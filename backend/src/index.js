@@ -18,7 +18,7 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) {
 
 const app = express();
 
-app.set('trust proxy', 1);
+app.set('trust proxy', 1); Yeah, hello hello
 
 app.use(
   helmet({
