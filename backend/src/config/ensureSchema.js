@@ -51,6 +51,79 @@ async function ensureTreatmentsSchema() {
   ) ENGINE=InnoDB`);
 }
 
+async function ensurePatientsSchema() {
+  await execute(`CREATE TABLE IF NOT EXISTS patients (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    patient_code VARCHAR(50) NULL,
+    nik VARCHAR(32) NULL,
+    name VARCHAR(255) NOT NULL,
+    gender ENUM('L', 'P') NOT NULL DEFAULT 'L',
+    birth_date DATE NULL,
+    phone VARCHAR(50) NULL,
+    address TEXT NULL,
+    blood_type VARCHAR(8) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_patients_name (name),
+    INDEX idx_patients_nik (nik)
+  ) ENGINE=InnoDB`);
+
+  const cols = await query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'patients'`
+  );
+  const names = new Set(cols.map((c) => c.COLUMN_NAME));
+  if (!names.has('patient_code')) {
+    await execute(`ALTER TABLE patients ADD COLUMN patient_code VARCHAR(50) NULL AFTER id`);
+  }
+  if (!names.has('nik')) {
+    await execute(`ALTER TABLE patients ADD COLUMN nik VARCHAR(32) NULL AFTER patient_code`);
+  }
+  if (!names.has('gender')) {
+    await execute(`ALTER TABLE patients ADD COLUMN gender ENUM('L', 'P') NOT NULL DEFAULT 'L' AFTER name`);
+  }
+  if (!names.has('birth_date')) {
+    await execute(`ALTER TABLE patients ADD COLUMN birth_date DATE NULL AFTER gender`);
+  }
+  if (!names.has('phone')) {
+    await execute(`ALTER TABLE patients ADD COLUMN phone VARCHAR(50) NULL AFTER birth_date`);
+  }
+  if (!names.has('address')) {
+    await execute(`ALTER TABLE patients ADD COLUMN address TEXT NULL AFTER phone`);
+  }
+  if (!names.has('blood_type')) {
+    await execute(`ALTER TABLE patients ADD COLUMN blood_type VARCHAR(8) NULL AFTER address`);
+  }
+  if (!names.has('created_at')) {
+    await execute(`ALTER TABLE patients ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER blood_type`);
+  }
+  if (!names.has('updated_at')) {
+    await execute(`ALTER TABLE patients ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at`);
+  }
+
+  await execute(`
+    UPDATE patients
+    SET patient_code = CONCAT('PAT-LEGACY-', LPAD(id, 6, '0'))
+    WHERE patient_code IS NULL OR patient_code = ''
+  `);
+
+  const indexes = await query(
+    `SELECT INDEX_NAME, GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) AS cols
+     FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'patients'
+     GROUP BY INDEX_NAME`
+  );
+  if (!indexes.some((idx) => idx.cols === 'patient_code')) {
+    await execute(`ALTER TABLE patients ADD UNIQUE KEY idx_patients_code (patient_code)`);
+  }
+  if (!indexes.some((idx) => idx.INDEX_NAME === 'idx_patients_name')) {
+    await execute(`ALTER TABLE patients ADD INDEX idx_patients_name (name)`);
+  }
+  if (!indexes.some((idx) => idx.INDEX_NAME === 'idx_patients_nik')) {
+    await execute(`ALTER TABLE patients ADD INDEX idx_patients_nik (nik)`);
+  }
+}
+
 /**
  * Master dokter harus ada sebelum tabel absensi/gaji (FK ke doctors.id).
  * Backfill: tiap user berperan dokter tanpa baris doctors → satu baris (nama/telepon dari users).
@@ -362,6 +435,7 @@ async function ensureStaffAttendanceTable() {
 
 export async function ensureAppSchema() {
   await ensureUsersAuthColumns();
+  await ensurePatientsSchema();
   await ensureDoctorsTableAndBackfill();
   await ensureMedicinesSchema();
   await ensureTreatmentsSchema();

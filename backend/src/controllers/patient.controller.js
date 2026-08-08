@@ -40,8 +40,8 @@ export const listPatients = asyncHandler(async (req, res) => {
     `SELECT id, patient_code, nik, name, gender, birth_date, phone, address, blood_type, created_at, updated_at
      FROM patients ${where}
      ORDER BY created_at DESC
-     LIMIT ${pageLimit} OFFSET ${pageOffset}`,
-    params
+     LIMIT ? OFFSET ?`,
+    [...params, pageLimit, pageOffset]
   );
 
   res.json({
