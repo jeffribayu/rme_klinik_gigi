@@ -60,7 +60,7 @@ export const stats = asyncHandler(async (req, res) => {
     SELECT DATE_FORMAT(visit_date, '%Y-%m-%d') AS period, COUNT(*) AS visits
     FROM medical_records
     WHERE visit_date >= DATE_SUB(CURDATE(), INTERVAL 24 DAY)
-    GROUP BY DATE(visit_date)
+    GROUP BY DATE_FORMAT(visit_date, '%Y-%m-%d')
     ORDER BY period ASC
   `);
 
@@ -68,7 +68,7 @@ export const stats = asyncHandler(async (req, res) => {
     SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS period, COUNT(*) AS patients
     FROM patients
     WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 24 DAY)
-    GROUP BY DATE(created_at)
+    GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
     ORDER BY period ASC
   `);
 
@@ -77,7 +77,7 @@ export const stats = asyncHandler(async (req, res) => {
     FROM medical_records
     WHERE visit_date >= DATE_SUB(CURDATE(), INTERVAL 24 DAY)
       AND NULLIF(TRIM(treatment), '') IS NOT NULL
-    GROUP BY DATE(visit_date)
+    GROUP BY DATE_FORMAT(visit_date, '%Y-%m-%d')
     ORDER BY period ASC
   `);
 

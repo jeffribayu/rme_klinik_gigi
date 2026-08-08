@@ -15,9 +15,12 @@ async function generatePatientCode(conn) {
 
 export const listPatients = asyncHandler(async (req, res) => {
   const { page, limit, search, gender } = req.query;
-  const offset = (page - 1) * limit;
-  const pageLimit = Number(limit);
-  const pageOffset = Number(offset);
+  const pageNumber = Number.isInteger(Number(page)) && Number(page) > 0 ? Number(page) : 1;
+  const pageLimit =
+    Number.isInteger(Number(limit)) && Number(limit) > 0
+      ? Math.min(Number(limit), 100)
+      : 10;
+  const pageOffset = (pageNumber - 1) * pageLimit;
   const params = [];
   let where = 'WHERE 1=1';
   if (search) {
@@ -40,14 +43,14 @@ export const listPatients = asyncHandler(async (req, res) => {
     `SELECT id, patient_code, nik, name, gender, birth_date, phone, address, blood_type, created_at, updated_at
      FROM patients ${where}
      ORDER BY created_at DESC
-     LIMIT ? OFFSET ?`,
-    [...params, pageLimit, pageOffset]
+     LIMIT ${pageLimit} OFFSET ${pageOffset}`,
+    params
   );
 
   res.json({
     success: true,
     data: rows,
-    meta: { page, limit, total },
+    meta: { page: pageNumber, limit: pageLimit, total },
   });
 });
 
