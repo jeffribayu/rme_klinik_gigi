@@ -85,6 +85,9 @@ export function publicAssetUrl(path) {
   if (!path || typeof path !== 'string') return '';
   if (/^https?:\/\//i.test(path)) return path;
   const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-  const p = path.startsWith('/') ? path : `/${path}`;
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  const p = normalized.startsWith('/uploads/')
+    ? `/api/v1${normalized}`
+    : normalized;
   return `${base}${p}`;
 }

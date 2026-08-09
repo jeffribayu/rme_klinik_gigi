@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { api } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -236,6 +236,7 @@ export default function MedicalRecordForm() {
   const [patient, setPatient] = useState(null);
   const [catalog, setCatalog] = useState([]);
   const [treatmentCatalog, setTreatmentCatalog] = useState([]);
+  const [treatmentSearch, setTreatmentSearch] = useState('');
   const [prescriptions, setPrescriptions] = useState([]);
   const [medicineRows, setMedicineRows] = useState([
     { item: '', medicineId: '', qty: '', tariff: 0 },
@@ -508,6 +509,15 @@ export default function MedicalRecordForm() {
   const selectedTreatment = treatmentCatalog.find(
     (item) => String(item.id) === String(treatmentDraft.treatmentId)
   );
+  const filteredTreatmentCatalog = useMemo(() => {
+    const q = treatmentSearch.trim().toLowerCase();
+    if (!q) return treatmentCatalog;
+    return treatmentCatalog.filter((item) =>
+      [item.name, item.icd_code, item.icd9_code, item.tooth_element]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(q))
+    );
+  }, [treatmentCatalog, treatmentSearch]);
   const treatmentPrice = Number(treatmentDraft.price) || 0;
 
   const applyTreatmentDiagnosis = (diagnosis) => {
@@ -558,6 +568,15 @@ export default function MedicalRecordForm() {
       [...treatmentRows, row].map(treatmentLine).join('\n')
     );
     toast.success('Tindakan ditambahkan');
+  };
+
+  const deleteTreatmentRow = (rowId) => {
+    setTreatmentRows((prev) => {
+      const next = prev.filter((row) => row.id !== rowId);
+      setValue('treatment', next.map(treatmentLine).join('\n'));
+      return next;
+    });
+    toast.success('Tindakan dihapus dari review');
   };
 
   const setPrescriptionLine = (idx, patch) => {
@@ -972,18 +991,27 @@ export default function MedicalRecordForm() {
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div className="space-y-2">
                       <Label className="font-bold">Tindakan</Label>
+                      <Input
+                        value={treatmentSearch}
+                        onChange={(e) => setTreatmentSearch(e.target.value)}
+                        placeholder="Cari tindakan / ICD / elemen gigi"
+                        className="h-10 rounded border-slate-300 bg-white dark:bg-slate-950"
+                      />
                       <select
                         value={treatmentDraft.treatmentId}
                         onChange={(e) => applyTreatmentDefaults(e.target.value)}
                         className="flex h-10 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:bg-slate-950"
                       >
                         <option value="">Pilih Tindakan</option>
-                        {treatmentCatalog.map((item) => (
+                        {filteredTreatmentCatalog.map((item) => (
                           <option key={item.id} value={String(item.id)}>
                             {item.name} - {formatCurrency(item.price)}
                           </option>
                         ))}
                       </select>
+                      {filteredTreatmentCatalog.length === 0 && (
+                        <p className="text-xs text-muted-foreground">Tindakan tidak ditemukan.</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -1099,6 +1127,7 @@ export default function MedicalRecordForm() {
                           <th className="border border-slate-200 px-3 py-3 text-left dark:border-slate-800">No.</th>
                           <th className="border border-slate-200 px-3 py-3 text-left dark:border-slate-800">Elemen Gigi</th>
                           <th className="border border-slate-200 px-3 py-3 text-left dark:border-slate-800">Riwayat Tindakan</th>
+                          <th className="border border-slate-200 px-3 py-3 text-right dark:border-slate-800">Aksi</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1117,6 +1146,18 @@ export default function MedicalRecordForm() {
                               </p>
                               <p className="text-xs text-muted-foreground">Tarif: {formatCurrency(row.price)}</p>
                             </td>
+                            <td className="border border-slate-200 px-3 py-3 text-right dark:border-slate-800">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-destructive hover:bg-destructive/10"
+                                onClick={() => deleteTreatmentRow(row.id)}
+                              >
+                                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                                Hapus
+                              </Button>
+                            </td>
                           </tr>
                         ))}
                         <tr>
@@ -1127,6 +1168,7 @@ export default function MedicalRecordForm() {
                           <td className="border border-slate-200 px-3 py-3 font-bold dark:border-slate-800">
                             {formatCurrency(treatmentRows.reduce((sum, row) => sum + Number(row.price || 0), 0))}
                           </td>
+                          <td className="border border-slate-200 px-3 py-3 dark:border-slate-800" />
                         </tr>
                       </tbody>
                     </table>

@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { UserAvatar } from '@/components/UserAvatar';
 import {
   Select,
   SelectContent,
@@ -22,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { publicAssetUrl } from '@/lib/utils';
 
 const emptyForm = {
   name: '',
@@ -170,15 +170,7 @@ export default function DoctorsSettings() {
                   {list.map((row) => (
                     <tr key={row.id} className="border-t border-border/40">
                       <td className="px-6 py-3">
-                        {row.photo ? (
-                          <img
-                            src={publicAssetUrl(row.photo)}
-                            alt=""
-                            className="h-10 w-10 rounded-full object-cover ring-1 ring-border"
-                          />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-muted" aria-hidden />
-                        )}
+                        <UserAvatar user={row} className="h-10 w-10" />
                       </td>
                       <td className="px-6 py-3 font-medium">{row.name}</td>
                       <td className="px-6 py-3 text-muted-foreground">{row.specialist || '—'}</td>
@@ -297,11 +289,7 @@ export default function DoctorsSettings() {
                   const cur = list.find((r) => r.id === editingId)?.photo;
                   return cur ? (
                     <div className="flex items-center gap-2">
-                      <img
-                        src={publicAssetUrl(cur)}
-                        alt="Foto saat ini"
-                        className="h-16 w-16 rounded-lg object-cover ring-1 ring-border"
-                      />
+                      <UserAvatar user={{ ...list.find((r) => r.id === editingId), photo: cur }} className="h-16 w-16 rounded-lg" />
                       <span className="text-xs text-muted-foreground">Foto saat ini</span>
                     </div>
                   ) : null;

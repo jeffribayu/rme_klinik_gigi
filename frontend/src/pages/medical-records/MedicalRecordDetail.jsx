@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { FileText, Wallet } from 'lucide-react';
+import { FileText, Trash2, Wallet } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { api } from '@/api/client';
@@ -81,10 +81,37 @@ function statusLabel(value) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function normalizeWaPhone(phone) {
+  const digits = String(phone || '').replace(/[^\d]/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('62')) return digits;
+  if (digits.startsWith('0')) return `62${digits.slice(1)}`;
+  return digits;
+}
+
+function invoiceWhatsAppUrl(mr, payment) {
+  const phone = normalizeWaPhone(mr.patient_phone);
+  if (!phone) return '';
+  const invoiceNo = `INV-${String(payment.id).padStart(5, '0')}`;
+  const text = [
+    `Halo ${mr.patient_name || 'Bapak/Ibu'},`,
+    '',
+    'Pembayaran layanan Linsea Dental Care sudah tercatat lunas.',
+    `No. Invoice: ${invoiceNo}`,
+    `No. Rekam Medis: ${mr.patient_code || '-'}`,
+    `Tanggal kunjungan: ${formatDateISO(mr.visit_date)}`,
+    `Total: ${formatCurrency(payment.total_price)}`,
+    `Metode: ${String(payment.payment_method || '-').toUpperCase()}`,
+    '',
+    'Terima kasih.'
+  ].join('\n');
+  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+}
+
 export default function MedicalRecordDetail() {
   const { id } = useParams();
   const role = useAuthStore((s) => s.user?.role);
-  const canEdit = role === 'admin';
+  const canEdit = role === 'admin' || role === 'doctor';
   const [mr, setMr] = useState(null);
 
   const load = async () => {
@@ -102,15 +129,52 @@ export default function MedicalRecordDetail() {
 
   const updatePaymentStatus = async (payment, status) => {
     try {
-      await api.put(`/api/v1/payments/${payment.id}`, {
+      const { data } = await api.put(`/api/v1/payments/${payment.id}`, {
         total_price: Number(payment.total_price),
         payment_method: payment.payment_method,
         payment_status: status,
       });
       toast.success('Status pembayaran diperbarui');
+      if (status === 'lunas') {
+        const waUrl = invoiceWhatsAppUrl(mr, data.data || payment);
+        if (waUrl) {
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
+          toast.success('Invoice WhatsApp dibuka. Tekan kirim di WhatsApp.');
+        } else {
+          toast.info('Status lunas. Nomor WhatsApp pasien belum tersedia.');
+        }
+      }
       await load();
     } catch (e) {
       toast.error(e.response?.data?.message || 'Gagal mengubah status pembayaran');
+    }
+  };
+
+  const deleteTreatmentAction = async (indexToDelete) => {
+    if (!window.confirm('Hapus tindakan ini dari riwayat tindakan?')) return;
+    const nextTreatment = actions
+      .filter((_, index) => index !== indexToDelete)
+      .map((row) => row.description)
+      .join('\n');
+    try {
+      await api.put(`/api/v1/medical-records/${mr.id}`, {
+        patient_id: Number(mr.patient_id),
+        doctor_id: Number(mr.doctor_id),
+        complaint: mr.complaint || null,
+        diagnosis: mr.diagnosis || null,
+        treatment: nextTreatment || null,
+        notes: mr.notes || null,
+        visit_date: formatDateISO(mr.visit_date),
+        prescriptions: prescriptions.map((rx) => ({
+          medicine_name: rx.medicine_name,
+          dosage: rx.dosage || null,
+          instruction: rx.instruction || null,
+        })),
+      });
+      toast.success('Tindakan dihapus');
+      await load();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Gagal menghapus tindakan');
     }
   };
 
@@ -308,6 +372,7 @@ export default function MedicalRecordDetail() {
                     <th className="border px-3 py-2 text-left">Elemen Gigi</th>
                     <th className="border px-3 py-2 text-left">Frekuensi</th>
                     <th className="border px-3 py-2 text-right">Tarif</th>
+                    {canEdit && <th className="border px-3 py-2 text-right">Aksi</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -318,13 +383,28 @@ export default function MedicalRecordDetail() {
                       <td className="border px-3 py-2">{row.tooth}</td>
                       <td className="border px-3 py-2">{row.frequency}</td>
                       <td className="border px-3 py-2 text-right">{formatCurrency(row.price)}</td>
+                      {canEdit && (
+                        <td className="border px-3 py-2 text-right">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:bg-destructive/10"
+                            onClick={() => deleteTreatmentAction(index)}
+                          >
+                            <Trash2 className="mr-1 h-3.5 w-3.5" />
+                            Hapus
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                   <tr className="font-semibold">
-                    <td className="border px-3 py-2 text-right" colSpan={4}>
+                    <td className="border px-3 py-2 text-right" colSpan={canEdit ? 4 : 4}>
                       Subtotal Tarif
                     </td>
                     <td className="border px-3 py-2 text-right">{formatCurrency(actionSubtotal)}</td>
+                    {canEdit && <td className="border px-3 py-2" />}
                   </tr>
                 </tbody>
               </table>

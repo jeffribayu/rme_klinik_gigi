@@ -42,6 +42,7 @@ app.use((_req, res, next) => {
 
 const uploadsPath = path.join(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadsPath));
+app.use('/api/v1/uploads', express.static(uploadsPath));
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'rme-klinik-gigi-api' });

@@ -1,18 +1,22 @@
+import { useState } from 'react';
 import { cn, publicAssetUrl } from '@/lib/utils';
 
 /**
  * Avatar pengguna: foto dokter (dari profil dokter) jika ada, selain itu inisial nama.
  */
 export function UserAvatar({ user, className }) {
-  const src = user?.doctor_photo ? publicAssetUrl(user.doctor_photo) : null;
+  const [failedSrc, setFailedSrc] = useState('');
+  const photo = user?.doctor_photo || user?.photo;
+  const src = photo ? publicAssetUrl(photo) : null;
   const letter = (user?.name || '?').trim().slice(0, 1).toUpperCase() || '?';
 
-  if (src) {
+  if (src && src !== failedSrc) {
     return (
       <img
         src={src}
-        alt=""
+        alt={user?.name ? `Foto ${user.name}` : ''}
         className={cn('shrink-0 rounded-full object-cover ring-1 ring-border', className)}
+        onError={() => setFailedSrc(src)}
       />
     );
   }

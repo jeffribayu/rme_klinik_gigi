@@ -59,6 +59,33 @@ function invoiceTreatmentRows(row, statusLabel) {
   ]);
 }
 
+function normalizeWaPhone(phone) {
+  const digits = String(phone || '').replace(/[^\d]/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('62')) return digits;
+  if (digits.startsWith('0')) return `62${digits.slice(1)}`;
+  return digits;
+}
+
+function invoiceWhatsAppUrl(row) {
+  const phone = normalizeWaPhone(row.patient_phone);
+  if (!phone) return '';
+  const invoiceNo = `INV-${String(row.id).padStart(5, '0')}`;
+  const text = [
+    `Halo ${row.patient_name || 'Bapak/Ibu'},`,
+    '',
+    'Pembayaran layanan Linsea Dental Care sudah tercatat lunas.',
+    `No. Invoice: ${invoiceNo}`,
+    `No. Rekam Medis: ${row.patient_code || '-'}`,
+    `Tanggal kunjungan: ${formatDateISO(row.visit_date)}`,
+    `Total: ${formatCurrency(row.total_price)}`,
+    `Metode: ${String(row.payment_method || '-').toUpperCase()}`,
+    '',
+    'Terima kasih.'
+  ].join('\n');
+  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+}
+
 export default function Payments() {
   const role = useAuthStore((s) => s.user?.role);
   const canWrite = role === 'admin' || role === 'doctor' || role === 'nurse';
@@ -118,13 +145,23 @@ export default function Payments() {
 
   const submit = async () => {
     try {
-      await api.post('/api/v1/payments', {
+      const { data } = await api.post('/api/v1/payments', {
         medical_record_id: Number(form.medical_record_id),
         total_price: Number(form.total_price),
         payment_method: form.payment_method,
         payment_status: form.payment_status,
       });
       toast.success('Pembayaran dicatat');
+      const row = data.data;
+      if (row?.payment_status === 'lunas') {
+        const waUrl = invoiceWhatsAppUrl(row);
+        if (waUrl) {
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
+          toast.success('Invoice WhatsApp dibuka. Tekan kirim di WhatsApp.');
+        } else {
+          toast.info('Pembayaran lunas. Nomor WhatsApp pasien belum tersedia.');
+        }
+      }
       setDialogOpen(false);
       load();
     } catch (e) {

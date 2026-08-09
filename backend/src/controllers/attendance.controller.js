@@ -18,6 +18,7 @@ const SHIFTS = {
   shift1: { label: 'Shift 1', start: '09:00:00', graceLimit: '09:15:00' },
   shift2: { label: 'Shift 2', start: '15:00:00', graceLimit: '15:15:00' },
 };
+const DEFAULT_FACE_THRESHOLD = 0.55;
 const SHIFT_GRACE_SQL = `CASE WHEN shift = 'shift2' THEN '${SHIFTS.shift2.graceLimit}' ELSE '${SHIFTS.shift1.graceLimit}' END`;
 const LATE_MINUTES_SQL = `CEIL((TIME_TO_SEC(check_in) - TIME_TO_SEC(${SHIFT_GRACE_SQL})) / 60)`;
 const LATE_NOTE_SQL = `
@@ -425,7 +426,7 @@ export const faceAttendance = asyncHandler(async (req, res) => {
 
     const registeredDescriptor = parseDescriptor(nurse.face_descriptor);
     const similarity = Number(cosineSimilarity(scannedDescriptor, registeredDescriptor).toFixed(4));
-    const threshold = Number(process.env.ATTENDANCE_FACE_THRESHOLD || 0.78);
+    const threshold = Number(process.env.ATTENDANCE_FACE_THRESHOLD || DEFAULT_FACE_THRESHOLD);
     if (similarity < threshold) {
       throw new AppError(`Wajah tidak cocok. Similarity ${similarity}`, 403);
     }
@@ -526,7 +527,7 @@ export const faceAttendance = asyncHandler(async (req, res) => {
 
   const registeredDescriptor = parseDescriptor(doctor.face_descriptor);
   const similarity = Number(cosineSimilarity(scannedDescriptor, registeredDescriptor).toFixed(4));
-  const threshold = Number(process.env.ATTENDANCE_FACE_THRESHOLD || 0.78);
+  const threshold = Number(process.env.ATTENDANCE_FACE_THRESHOLD || DEFAULT_FACE_THRESHOLD);
   if (similarity < threshold) {
     throw new AppError(`Wajah tidak cocok. Similarity ${similarity}`, 403);
   }

@@ -81,9 +81,9 @@ function ViewRow({ label, value }) {
 }
 
 const FACE_STEPS = [
-  'Menghadap lurus ke kamera',
-  'Sedikit menghadap ke kiri',
-  'Sedikit menghadap ke kanan',
+  'Menghadap lurus ke kamera - sampel 1',
+  'Menghadap lurus ke kamera - sampel 2',
+  'Menghadap lurus ke kamera - sampel 3',
 ];
 
 export default function ProfileSettings() {

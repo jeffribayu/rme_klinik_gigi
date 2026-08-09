@@ -29,6 +29,8 @@ export function descriptorFromVideo(video) {
   small.width = DESCRIPTOR_SIZE;
   small.height = DESCRIPTOR_SIZE;
   const smallCtx = small.getContext('2d', { willReadFrequently: true });
+  smallCtx.imageSmoothingEnabled = true;
+  smallCtx.imageSmoothingQuality = 'high';
   smallCtx.drawImage(
     source,
     box.x,
@@ -47,11 +49,18 @@ export function descriptorFromVideo(video) {
     gray.push((data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) / 255);
   }
 
-  const mean = gray.reduce((sum, n) => sum + n, 0) / gray.length;
-  const variance = gray.reduce((sum, n) => sum + (n - mean) ** 2, 0) / gray.length;
+  const symmetric = gray.map((n, i) => {
+    const x = i % DESCRIPTOR_SIZE;
+    const y = Math.floor(i / DESCRIPTOR_SIZE);
+    const mirrorIndex = y * DESCRIPTOR_SIZE + (DESCRIPTOR_SIZE - 1 - x);
+    return (n + gray[mirrorIndex]) / 2;
+  });
+
+  const mean = symmetric.reduce((sum, n) => sum + n, 0) / symmetric.length;
+  const variance = symmetric.reduce((sum, n) => sum + (n - mean) ** 2, 0) / symmetric.length;
   const contrast = Math.sqrt(variance);
   const denom = contrast || 1;
-  const vector = gray.map((n) => (n - mean) / denom);
+  const vector = symmetric.map((n) => (n - mean) / denom);
   const norm = Math.sqrt(vector.reduce((sum, n) => sum + n * n, 0)) || 1;
   const descriptor = vector.map((n) => Number((n / norm).toFixed(6)));
 

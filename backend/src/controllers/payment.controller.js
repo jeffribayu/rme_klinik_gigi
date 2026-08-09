@@ -21,7 +21,7 @@ export const listPayments = asyncHandler(async (req, res) => {
   }
 
   const rows = await query(
-    `SELECT py.*, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date, mr.treatment, p.name AS patient_name, p.patient_code
+    `SELECT py.*, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date, mr.treatment, p.name AS patient_name, p.patient_code, p.phone AS patient_phone
      FROM payments py
      JOIN medical_records mr ON mr.id = py.medical_record_id
      JOIN patients p ON p.id = mr.patient_id
@@ -49,7 +49,7 @@ export const createPayment = asyncHandler(async (req, res) => {
   );
 
   const rows = await query(
-    `SELECT py.*, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date, mr.treatment, p.name AS patient_name, p.patient_code
+    `SELECT py.*, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date, mr.treatment, p.name AS patient_name, p.patient_code, p.phone AS patient_phone
      FROM payments py
      JOIN medical_records mr ON mr.id = py.medical_record_id
      JOIN patients p ON p.id = mr.patient_id
@@ -73,7 +73,7 @@ export const updatePayment = asyncHandler(async (req, res) => {
   );
 
   const rows = await query(
-    `SELECT py.*, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date, mr.treatment, p.name AS patient_name, p.patient_code
+    `SELECT py.*, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date, mr.treatment, p.name AS patient_name, p.patient_code, p.phone AS patient_phone
      FROM payments py
      JOIN medical_records mr ON mr.id = py.medical_record_id
      JOIN patients p ON p.id = mr.patient_id

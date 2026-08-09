@@ -133,6 +133,7 @@ export default function Appointments() {
 
   const [open, setOpen] = useState(false);
   const [patients, setPatients] = useState([]);
+  const [dialogPatientSearch, setDialogPatientSearch] = useState('');
   const [doctors, setDoctors] = useState([]);
   const [form, setForm] = useState({
     patient_id: presetPatient,
@@ -226,6 +227,16 @@ export default function Appointments() {
     return filtered.slice(0, Number(pageSize));
   }, [list, tab, patientSearch, codeSearch, sortOrder, pageSize]);
 
+  const selectablePatients = useMemo(() => {
+    const q = dialogPatientSearch.trim().toLowerCase();
+    if (!q) return patients;
+    return patients.filter((p) =>
+      [p.patient_code, p.name, p.phone, p.nik]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(q))
+    );
+  }, [patients, dialogPatientSearch]);
+
   const closeDialog = (nextOpen) => {
     setOpen(nextOpen);
     if (!nextOpen && presetPatient) {
@@ -316,6 +327,7 @@ export default function Appointments() {
                     className="h-9 rounded bg-blue-600 px-3 shadow-none hover:bg-blue-700"
                     onClick={() => {
                       setForm((f) => ({ ...f, patient_id: '', appointment_date: `${date}T09:00` }));
+                      setDialogPatientSearch('');
                       setOpen(true);
                     }}
                   >
@@ -600,6 +612,13 @@ export default function Appointments() {
           <form onSubmit={submit} className="grid gap-3 py-2">
             <div className="space-y-2">
               <Label>Pasien</Label>
+              <Input
+                value={dialogPatientSearch}
+                onChange={(e) => setDialogPatientSearch(e.target.value)}
+                placeholder="Cari nama / kode / NIK / telepon pasien"
+                className="h-10 rounded bg-white dark:bg-slate-950"
+                disabled={Boolean(presetPatient)}
+              />
               <select
                 value={form.patient_id}
                 onChange={(e) => setForm((f) => ({ ...f, patient_id: e.target.value }))}
@@ -608,12 +627,15 @@ export default function Appointments() {
                 required
               >
                 <option value="">Pilih pasien</option>
-                {patients.map((p) => (
+                {selectablePatients.map((p) => (
                   <option key={p.id} value={String(p.id)}>
                     {p.patient_code} - {p.name}
                   </option>
                 ))}
               </select>
+              {!presetPatient && selectablePatients.length === 0 && (
+                <p className="text-xs text-muted-foreground">Pasien tidak ditemukan.</p>
+              )}
               {presetPatient && (
                 <p className="text-xs text-muted-foreground">
                   Pasien dipilih otomatis dari Data Pasien.
