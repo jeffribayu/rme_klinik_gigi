@@ -290,7 +290,9 @@ export const treatmentBodySchema = z.object({
 
 export const attendanceMonthQuerySchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/),
+  type: z.enum(['all', 'doctor', 'nurse']).optional(),
   doctor_id: z.coerce.number().int().positive().optional(),
+  nurse_id: z.coerce.number().int().positive().optional(),
 });
 
 export const attendanceUpsertSchema = z.object({

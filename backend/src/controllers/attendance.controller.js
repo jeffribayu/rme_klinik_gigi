@@ -213,7 +213,7 @@ export const listAttendance = asyncHandler(async (req, res) => {
 
   if (req.user.role === 'nurse') {
     const rows = await query(
-      `SELECT sa.*, ${LATE_NOTE_SQL}, u.name AS doctor_name
+      `SELECT sa.*, ${LATE_NOTE_SQL}, 'nurse' AS personnel_type, u.name AS personnel_name, u.name AS doctor_name
        FROM staff_attendance sa
        JOIN users u ON u.id = sa.user_id
        WHERE sa.user_id = ? AND DATE_FORMAT(sa.work_date, '%Y-%m') = ?
@@ -224,17 +224,40 @@ export const listAttendance = asyncHandler(async (req, res) => {
   }
 
   if (req.user.role === 'admin') {
+    const typeFilter = ['doctor', 'nurse'].includes(req.query.type) ? req.query.type : 'all';
     const doctorFilter = req.query.doctor_id ? Number(req.query.doctor_id) : null;
-    let sql = `SELECT da.*, ${LATE_NOTE_SQL}, d.name AS doctor_name
+    const nurseFilter = req.query.nurse_id ? Number(req.query.nurse_id) : null;
+    const parts = [];
+    const params = [];
+
+    if (typeFilter !== 'nurse') {
+      let doctorSql = `SELECT da.*, ${LATE_NOTE_SQL}, 'doctor' AS personnel_type, d.name AS personnel_name, d.name AS doctor_name
        FROM doctor_attendance da
        JOIN doctors d ON d.id = da.doctor_id
        WHERE DATE_FORMAT(da.work_date, '%Y-%m') = ?`;
-    const params = [month];
-    if (doctorFilter) {
-      sql += ' AND da.doctor_id = ?';
-      params.push(doctorFilter);
+      params.push(month);
+      if (doctorFilter) {
+        doctorSql += ' AND da.doctor_id = ?';
+        params.push(doctorFilter);
+      }
+      parts.push(doctorSql);
     }
-    sql += ' ORDER BY da.work_date ASC, da.shift ASC, d.name ASC';
+
+    if (typeFilter !== 'doctor') {
+      let nurseSql = `SELECT sa.*, ${LATE_NOTE_SQL}, 'nurse' AS personnel_type, u.name AS personnel_name, u.name AS doctor_name
+       FROM staff_attendance sa
+       JOIN users u ON u.id = sa.user_id
+       WHERE u.role = 'nurse' AND DATE_FORMAT(sa.work_date, '%Y-%m') = ?`;
+      params.push(month);
+      if (nurseFilter) {
+        nurseSql += ' AND sa.user_id = ?';
+        params.push(nurseFilter);
+      }
+      parts.push(nurseSql);
+    }
+
+    const sql = `${parts.join(' UNION ALL ')}
+       ORDER BY work_date ASC, shift ASC, personnel_type ASC, personnel_name ASC`;
     const rows = await query(sql, params);
     return res.json({ success: true, data: rows });
   }
@@ -615,7 +638,8 @@ export const deleteAttendance = asyncHandler(async (req, res) => {
   if (!Number.isInteger(id) || id < 1) {
     throw new AppError('ID tidak valid', 400);
   }
-  const result = await execute('DELETE FROM doctor_attendance WHERE id = ?', [id]);
+  const table = req.query.type === 'nurse' ? 'staff_attendance' : 'doctor_attendance';
+  const result = await execute(`DELETE FROM ${table} WHERE id = ?`, [id]);
   if (!result.affectedRows) {
     throw new AppError('Data absensi tidak ditemukan', 404);
   }

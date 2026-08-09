@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuthStore } from '@/store/authStore';
-import { formatDate, formatAttendanceClock, publicAssetUrl } from '@/lib/utils';
+import { formatDate, formatAttendanceClock, publicAssetUrl, publicAssetUrlCandidates } from '@/lib/utils';
 import { blobFromVideo, descriptorFromVideo } from '@/lib/faceDescriptor';
 
 const STATUS_OPTS = [
@@ -68,13 +68,38 @@ function workDateToMonth(wd) {
   return ymd.length >= 7 ? ymd.slice(0, 7) : null;
 }
 
+function AttendancePhoto({ path, alt }) {
+  const urls = publicAssetUrlCandidates(path);
+  const [index, setIndex] = useState(0);
+
+  if (!urls.length) {
+    return (
+      <div className="flex h-16 w-16 items-center justify-center rounded-md border bg-background text-[10px] text-muted-foreground">
+        Belum ada
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={urls[index]}
+      alt={alt}
+      className="h-16 w-16 rounded-md border object-cover"
+      onError={() => setIndex((current) => Math.min(current + 1, urls.length - 1))}
+    />
+  );
+}
+
 export default function AttendancePage() {
   const role = useAuthStore((s) => s.user?.role);
   const canManageAttendance = role === 'admin';
   const canScanFaceAttendance = role === 'doctor' || role === 'nurse';
   const [month, setMonth] = useState(monthNow);
   const [doctors, setDoctors] = useState([]);
+  const [nurses, setNurses] = useState([]);
+  const [adminStaffType, setAdminStaffType] = useState('all');
   const [adminDoctorFilter, setAdminDoctorFilter] = useState('all');
+  const [adminNurseFilter, setAdminNurseFilter] = useState('all');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const videoRef = useRef(null);
@@ -104,10 +129,14 @@ export default function AttendancePage() {
     if (!canManageAttendance) return;
     (async () => {
       try {
-        const { data } = await api.get('/api/v1/doctors');
-        setDoctors(data.data || []);
+        const [doctorRes, nurseRes] = await Promise.all([
+          api.get('/api/v1/doctors'),
+          api.get('/api/v1/users/nurses'),
+        ]);
+        setDoctors(doctorRes.data.data || []);
+        setNurses(nurseRes.data.data || []);
       } catch {
-        toast.error('Gagal memuat dokter');
+        toast.error('Gagal memuat data dokter/perawat');
       }
     })();
   }, [canManageAttendance]);
@@ -123,8 +152,14 @@ export default function AttendancePage() {
       const m = (explicitMonth ?? month).slice(0, 7);
       try {
         const params = new URLSearchParams({ month: m });
-        if (canManageAttendance && adminDoctorFilter !== 'all') {
+        if (canManageAttendance && adminStaffType !== 'all') {
+          params.set('type', adminStaffType);
+        }
+        if (canManageAttendance && adminStaffType !== 'nurse' && adminDoctorFilter !== 'all') {
           params.set('doctor_id', adminDoctorFilter);
+        }
+        if (canManageAttendance && adminStaffType !== 'doctor' && adminNurseFilter !== 'all') {
+          params.set('nurse_id', adminNurseFilter);
         }
         const { data } = await api.get(`/api/v1/attendance?${params}`);
         setRows(data.data || []);
@@ -134,7 +169,7 @@ export default function AttendancePage() {
         setLoading(false);
       }
     },
-    [month, adminDoctorFilter, role, canManageAttendance]
+    [month, adminStaffType, adminDoctorFilter, adminNurseFilter, role, canManageAttendance]
   );
 
   useEffect(() => {
@@ -381,10 +416,12 @@ export default function AttendancePage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const deleteRow = async (id) => {
+  const deleteRow = async (row) => {
     if (!window.confirm('Hapus baris absensi ini?')) return;
     try {
-      await api.delete(`/api/v1/attendance/${id}`);
+      await api.delete(`/api/v1/attendance/${row.id}`, {
+        params: { type: row.personnel_type },
+      });
       toast.success('Absensi dihapus');
       load();
     } catch (err) {
@@ -400,7 +437,7 @@ export default function AttendancePage() {
         <h1 className="text-3xl font-bold tracking-tight">Absensi</h1>
         <p className="text-muted-foreground">
           {canManageAttendance
-            ? 'Admin mengelola absensi manual dan melihat rekapan scan wajah dokter.'
+            ? 'Admin mengelola absensi manual dokter dan melihat rekapan scan wajah dokter/perawat.'
             : 'Scan wajah dan lokasi klinik untuk mencatat jam masuk dan pulang.'}
         </p>
       </div>
@@ -415,8 +452,30 @@ export default function AttendancePage() {
             <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
           </div>
           {canManageAttendance && (
+            <div className="min-w-[180px] space-y-2">
+              <Label>Jenis staf</Label>
+              <Select
+                value={adminStaffType}
+                onValueChange={(value) => {
+                  setAdminStaffType(value);
+                  setAdminDoctorFilter('all');
+                  setAdminNurseFilter('all');
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua staf</SelectItem>
+                  <SelectItem value="doctor">Dokter</SelectItem>
+                  <SelectItem value="nurse">Perawat</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {canManageAttendance && adminStaffType !== 'nurse' && (
             <div className="min-w-[240px] space-y-2">
-              <Label>Dokter (tabel)</Label>
+              <Label>Dokter</Label>
               <Select value={adminDoctorFilter} onValueChange={setAdminDoctorFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Dokter" />
@@ -426,6 +485,24 @@ export default function AttendancePage() {
                   {doctors.map((d) => (
                     <SelectItem key={d.id} value={String(d.id)}>
                       {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {canManageAttendance && adminStaffType !== 'doctor' && (
+            <div className="min-w-[240px] space-y-2">
+              <Label>Perawat</Label>
+              <Select value={adminNurseFilter} onValueChange={setAdminNurseFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Perawat" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua perawat</SelectItem>
+                  {nurses.map((n) => (
+                    <SelectItem key={n.id} value={String(n.id)}>
+                      {n.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -531,7 +608,7 @@ export default function AttendancePage() {
       {canManageAttendance && (
         <Card>
           <CardHeader>
-            <CardTitle>Tambah / ubah absensi</CardTitle>
+            <CardTitle>Tambah / ubah absensi dokter</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={saveAdminForm} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -643,10 +720,17 @@ export default function AttendancePage() {
               {rows.map((r) => {
                 const note = attendanceNote(r);
                 return (
-                <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 text-sm">
+                <li key={`${r.personnel_type || 'doctor'}-${r.id}`} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 text-sm">
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap gap-x-3 gap-y-1">
-                      {canManageAttendance && <span className="font-medium text-foreground">{r.doctor_name}</span>}
+                      {canManageAttendance && (
+                        <>
+                          <span className="font-medium text-foreground">{r.personnel_name || r.doctor_name}</span>
+                          <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                            {r.personnel_type === 'nurse' ? 'Perawat' : 'Dokter'}
+                          </span>
+                        </>
+                      )}
                       <span className="font-medium">{formatDate(r.work_date)}</span>
                       <span className="font-medium text-foreground/80">{shiftLabel(r.shift)}</span>
                       <span className={`capitalize ${attendanceStatusClass(r)}`}>{r.status}</span>
@@ -706,11 +790,7 @@ export default function AttendancePage() {
                           <div className="flex gap-3">
                             {r.check_in_photo ? (
                               <a href={publicAssetUrl(r.check_in_photo)} target="_blank" rel="noreferrer" className="block">
-                                <img
-                                  src={publicAssetUrl(r.check_in_photo)}
-                                  alt="Foto bukti masuk"
-                                  className="h-16 w-16 rounded-md border object-cover"
-                                />
+                                <AttendancePhoto path={r.check_in_photo} alt="Foto bukti masuk" />
                               </a>
                             ) : (
                               <div className="flex h-16 w-16 items-center justify-center rounded-md border bg-background text-[10px] text-muted-foreground">
@@ -729,11 +809,7 @@ export default function AttendancePage() {
                           <div className="flex gap-3">
                             {r.check_out_photo ? (
                               <a href={publicAssetUrl(r.check_out_photo)} target="_blank" rel="noreferrer" className="block">
-                                <img
-                                  src={publicAssetUrl(r.check_out_photo)}
-                                  alt="Foto bukti pulang"
-                                  className="h-16 w-16 rounded-md border object-cover"
-                                />
+                                <AttendancePhoto path={r.check_out_photo} alt="Foto bukti pulang" />
                               </a>
                             ) : (
                               <div className="flex h-16 w-16 items-center justify-center rounded-md border bg-background text-[10px] text-muted-foreground">
@@ -752,15 +828,17 @@ export default function AttendancePage() {
                   </div>
                   {canManageAttendance && (
                     <div className="flex shrink-0 gap-1">
-                      <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={() => startEditRow(r)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      {r.personnel_type !== 'nurse' && (
+                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={() => startEditRow(r)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => deleteRow(r.id)}
+                        onClick={() => deleteRow(r)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
