@@ -91,3 +91,18 @@ export function publicAssetUrl(path) {
     : normalized;
   return `${base}${p}`;
 }
+
+export function publicAssetUrlCandidates(path) {
+  const first = publicAssetUrl(path);
+  if (!path || typeof path !== 'string' || /^https?:\/\//i.test(path)) return first ? [first] : [];
+
+  const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  const candidates = [first];
+
+  if (normalized.startsWith('/uploads/')) {
+    candidates.push(`${base}${normalized}`);
+  }
+
+  return [...new Set(candidates.filter(Boolean))];
+}
