@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FilePlus, Eye, Pencil, Trash2 } from 'lucide-react';
+import { FilePlus, Eye, Pencil, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
@@ -26,6 +26,7 @@ export default function MedicalRecordsList() {
   const canEdit = role === 'admin';
   const canDelete = role === 'admin';
   const [list, setList] = useState([]);
+  const [patientSearch, setPatientSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -41,6 +42,16 @@ export default function MedicalRecordsList() {
   useEffect(() => {
     load();
   }, []);
+
+  const filteredList = useMemo(() => {
+    const q = patientSearch.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((mr) =>
+      [mr.patient_name, mr.patient_code]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(q))
+    );
+  }, [list, patientSearch]);
 
   const deleteRecord = async (id) => {
     if (!window.confirm('Hapus rekam medis ini?')) return;
@@ -71,8 +82,17 @@ export default function MedicalRecordsList() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-lg">Daftar rekam medis</CardTitle>
+          <div className="relative w-full sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={patientSearch}
+              onChange={(e) => setPatientSearch(e.target.value)}
+              placeholder="Cari nama / kode pasien"
+              className="pl-9"
+            />
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
@@ -96,7 +116,7 @@ export default function MedicalRecordsList() {
                   </tr>
                 </thead>
                 <tbody>
-                  {list.map((mr, idx) => (
+                  {filteredList.map((mr, idx) => (
                     <motion.tr
                       key={mr.id}
                       initial={{ opacity: 0, y: 6 }}
@@ -162,9 +182,9 @@ export default function MedicalRecordsList() {
                   ))}
                 </tbody>
               </table>
-              {list.length === 0 && (
+              {filteredList.length === 0 && (
                 <p className="px-6 py-12 text-center text-muted-foreground">
-                  Belum ada rekam medis.
+                  {list.length === 0 ? 'Belum ada rekam medis.' : 'Pasien tidak ditemukan.'}
                 </p>
               )}
             </div>

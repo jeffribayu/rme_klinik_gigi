@@ -90,6 +90,10 @@ export default function UsersSettings() {
       toast.error('Nama dan email wajib');
       return;
     }
+    if (!editingId && form.password.length < 8) {
+      toast.error('Password minimal 8 karakter');
+      return;
+    }
     if (!editingId && form.password !== form.confirmPassword) {
       toast.error('Konfirmasi password tidak sama');
       return;

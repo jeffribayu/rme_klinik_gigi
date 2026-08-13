@@ -209,13 +209,13 @@ router.delete(
 router.get(
   '/medical-records',
   authenticate,
-  authorize('admin', 'doctor'),
+  authorize('admin', 'doctor', 'nurse'),
   medicalRecordController.listMedicalRecords
 );
 router.get(
   '/medical-records/:id',
   authenticate,
-  authorize('admin', 'doctor'),
+  authorize('admin', 'doctor', 'nurse'),
   medicalRecordController.getMedicalRecord
 );
 router.post(

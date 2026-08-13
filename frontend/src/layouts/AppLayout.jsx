@@ -124,6 +124,7 @@ function buildNav(role) {
         children: [
           { to: '/patients', icon: Users, label: 'Data Pasien' },
           { to: '/patients/new', icon: UserPlus, label: 'Form Pasien Baru' },
+          { to: '/medical-records', icon: FileText, label: 'Rekam Medis' },
         ],
       },
       { to: '/appointments', icon: CalendarDays, label: 'Antrian Pasien' },

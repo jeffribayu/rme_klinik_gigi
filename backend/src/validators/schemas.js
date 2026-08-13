@@ -211,7 +211,10 @@ export const userAdminCreateSchema = z
   .object({
     name: z.string().min(2).max(255),
     email: z.string().email(),
-    phone: z.string().min(8).max(50),
+    phone: z
+      .union([z.string().max(50), z.literal('')])
+      .optional()
+      .nullable(),
     password: z.string().min(8).max(128),
     confirmPassword: z.string().min(8).max(128),
     role: z.enum(['doctor', 'nurse']).default('nurse'),

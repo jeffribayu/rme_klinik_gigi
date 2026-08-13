@@ -85,10 +85,10 @@ export default function App() {
           <Route path="patients/:id" element={<RoleGate allow={['admin', 'doctor', 'nurse']}><PatientDetail /></RoleGate>} />
           <Route path="patients/:id/edit" element={<RoleGate allow={['admin', 'doctor', 'nurse']}><PatientForm /></RoleGate>} />
 
-          <Route path="medical-records" element={<RoleGate allow={['admin', 'doctor']}><MedicalRecordsList /></RoleGate>} />
+          <Route path="medical-records" element={<RoleGate allow={['admin', 'doctor', 'nurse']}><MedicalRecordsList /></RoleGate>} />
           <Route path="medical-records/new" element={<RoleGate allow={['admin', 'doctor']}><MedicalRecordForm /></RoleGate>} />
           <Route path="medical-records/:id/edit" element={<RoleGate allow={['admin', 'doctor']}><MedicalRecordForm /></RoleGate>} />
-          <Route path="medical-records/:id" element={<RoleGate allow={['admin', 'doctor']}><MedicalRecordDetail /></RoleGate>} />
+          <Route path="medical-records/:id" element={<RoleGate allow={['admin', 'doctor', 'nurse']}><MedicalRecordDetail /></RoleGate>} />
 
           <Route path="odontogram" element={<RoleGate allow={['doctor']}><OdontogramPage /></RoleGate>} />
           <Route path="appointments" element={<Appointments />} />

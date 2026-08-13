@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CalendarDays, Megaphone, MessageCircle, Plus, Stethoscope } from 'lucide-react';
+import { CalendarDays, Megaphone, MessageCircle, Plus, Stethoscope, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api/client';
 import { Button } from '@/components/ui/button';
@@ -288,6 +288,17 @@ export default function Appointments() {
     }
   };
 
+  const deleteAppointment = async (appointment) => {
+    if (!window.confirm(`Hapus antrian pasien "${appointment.patient_name}"?`)) return;
+    try {
+      await api.delete(`/api/v1/appointments/${appointment.id}`);
+      toast.success('Antrian pasien dihapus');
+      await load();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Gagal menghapus antrian pasien');
+    }
+  };
+
   const resetFilters = () => {
     setStatusFilter('all');
     setPaymentFilter('semua');
@@ -498,6 +509,16 @@ export default function Appointments() {
                               <Link to={`/medical-records/new?patient_id=${a.patient_id}`}>
                                 Rekam Medis
                               </Link>
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-9 rounded border-red-200 bg-white font-bold text-red-700 shadow-none hover:bg-red-50 hover:text-red-800 disabled:border-slate-200 disabled:text-slate-400 dark:border-red-900 dark:bg-slate-950 dark:text-red-300 dark:hover:bg-red-950"
+                              onClick={() => deleteAppointment(a)}
+                              disabled={!canWrite}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Hapus
                             </Button>
                           </div>
                         </div>

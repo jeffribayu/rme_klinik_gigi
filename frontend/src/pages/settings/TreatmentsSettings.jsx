@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api/client';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ export default function TreatmentsSettings() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm());
+  const [search, setSearch] = useState('');
 
   const load = async () => {
     try {
@@ -43,6 +44,16 @@ export default function TreatmentsSettings() {
   useEffect(() => {
     load();
   }, []);
+
+  const filteredList = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((item) =>
+      [item.name, item.icd_code, item.icd9_code, item.tooth_element]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(q))
+    );
+  }, [list, search]);
 
   const openNew = () => {
     setEditing(null);
@@ -112,15 +123,26 @@ export default function TreatmentsSettings() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Daftar tindakan</CardTitle>
+          <div className="relative w-full sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari tindakan / ICD / elemen gigi"
+              className="pl-9"
+            />
+          </div>
         </CardHeader>
         <CardContent>
-          {list.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Belum ada tindakan.</p>
+          {filteredList.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {list.length === 0 ? 'Belum ada tindakan.' : 'Tindakan tidak ditemukan.'}
+            </p>
           ) : (
             <ul className="divide-y rounded-md border">
-              {list.map((item) => (
+              {filteredList.map((item) => (
                 <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
                   <div>
                     <p className="font-semibold">{item.name}</p>
