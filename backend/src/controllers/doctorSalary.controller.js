@@ -44,9 +44,16 @@ function monthRange(month) {
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
     throw new AppError('Parameter month wajib (format YYYY-MM)', 400);
   }
+
+  const [year, monthNumber] = month.split('-').map(Number);
+  if (monthNumber < 1 || monthNumber > 12) {
+    throw new AppError('Parameter month tidak valid', 400);
+  }
+
+  const nextMonth = new Date(Date.UTC(year, monthNumber, 1));
   return {
     start: `${month}-01`,
-    end: `${month}-31`,
+    endExclusive: `${nextMonth.getUTCFullYear()}-${String(nextMonth.getUTCMonth() + 1).padStart(2, '0')}-01`,
   };
 }
 
@@ -87,7 +94,7 @@ function parseTreatmentLines(treatment) {
 }
 
 export const listDoctorSalaryActions = asyncHandler(async (req, res) => {
-  const { start, end } = monthRange(req.query.month);
+  const { start, endExclusive } = monthRange(req.query.month);
   let doctorId = null;
 
   if (req.user.role === 'doctor') {
@@ -101,7 +108,7 @@ export const listDoctorSalaryActions = asyncHandler(async (req, res) => {
     throw new AppError('Akses ditolak', 403);
   }
 
-  const params = [start, end];
+  const params = [start, endExclusive];
   let whereDoctor = '';
   if (doctorId) {
     whereDoctor = ' AND mr.doctor_id = ?';
@@ -115,7 +122,7 @@ export const listDoctorSalaryActions = asyncHandler(async (req, res) => {
      FROM medical_records mr
      JOIN patients p ON p.id = mr.patient_id
      JOIN doctors d ON d.id = mr.doctor_id
-     WHERE mr.visit_date BETWEEN ? AND ?
+     WHERE mr.visit_date >= ? AND mr.visit_date < ?
        AND mr.treatment IS NOT NULL
        AND mr.treatment <> ''
        AND EXISTS (

@@ -16,9 +16,11 @@ function monthNow() {
 }
 
 function monthBounds(month) {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
   return {
     from: `${month}-01`,
-    to: `${month}-31`,
+    to: `${month}-${String(lastDay).padStart(2, '0')}`,
   };
 }
 

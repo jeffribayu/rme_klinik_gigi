@@ -18,13 +18,17 @@ function shiftLabel(shift) {
   return SHIFT_LABELS[shift] || SHIFT_LABELS.shift1;
 }
 
+function monthNow() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
 function monthBounds(month) {
   const [year, m] = month.split('-').map(Number);
-  const start = new Date(year, m - 1, 1);
-  const end = new Date(year, m, 0);
+  const lastDay = new Date(Date.UTC(year, m, 0)).getUTCDate();
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
+    start: `${month}-01`,
+    end: `${month}-${String(lastDay).padStart(2, '0')}`,
   };
 }
 
@@ -98,7 +102,7 @@ export default function DoctorSalaryPage() {
   const user = useAuthStore((s) => s.user);
   const [doctors, setDoctors] = useState([]);
   const [doctorId, setDoctorId] = useState('');
-  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [month, setMonth] = useState(monthNow);
   const [attendance, setAttendance] = useState([]);
   const [salaryRows, setSalaryRows] = useState([]);
   const [actionRows, setActionRows] = useState([]);
