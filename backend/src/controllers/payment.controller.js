@@ -21,10 +21,13 @@ export const listPayments = asyncHandler(async (req, res) => {
   }
 
   const rows = await query(
-    `SELECT py.*, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date, mr.treatment, p.name AS patient_name, p.patient_code, p.phone AS patient_phone
+    `SELECT py.*, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date, mr.treatment, mr.notes,
+            p.name AS patient_name, p.patient_code, p.phone AS patient_phone,
+            d.name AS doctor_name
      FROM payments py
      JOIN medical_records mr ON mr.id = py.medical_record_id
      JOIN patients p ON p.id = mr.patient_id
+     JOIN doctors d ON d.id = mr.doctor_id
      ${where}
      ORDER BY py.created_at DESC`,
     params
@@ -49,10 +52,13 @@ export const createPayment = asyncHandler(async (req, res) => {
   );
 
   const rows = await query(
-    `SELECT py.*, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date, mr.treatment, p.name AS patient_name, p.patient_code, p.phone AS patient_phone
+    `SELECT py.*, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date, mr.treatment, mr.notes,
+            p.name AS patient_name, p.patient_code, p.phone AS patient_phone,
+            d.name AS doctor_name
      FROM payments py
      JOIN medical_records mr ON mr.id = py.medical_record_id
      JOIN patients p ON p.id = mr.patient_id
+     JOIN doctors d ON d.id = mr.doctor_id
      WHERE py.id = ?`,
     [result.insertId]
   );
@@ -73,10 +79,13 @@ export const updatePayment = asyncHandler(async (req, res) => {
   );
 
   const rows = await query(
-    `SELECT py.*, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date, mr.treatment, p.name AS patient_name, p.patient_code, p.phone AS patient_phone
+    `SELECT py.*, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date, mr.treatment, mr.notes,
+            p.name AS patient_name, p.patient_code, p.phone AS patient_phone,
+            d.name AS doctor_name
      FROM payments py
      JOIN medical_records mr ON mr.id = py.medical_record_id
      JOIN patients p ON p.id = mr.patient_id
+     JOIN doctors d ON d.id = mr.doctor_id
      WHERE py.id = ?`,
     [id]
   );

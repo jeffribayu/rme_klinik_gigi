@@ -62,8 +62,21 @@ function parseCurrency(text) {
   return raw ? Number(raw) : 0;
 }
 
+const THIRTY_PERCENT_TREATMENTS = new Set([
+  'tindakan orthodonsia - behel cekat keramik',
+  'tindakan orthodonsia - behel cekat self ligating',
+  'tindakan orthodonsia - behel cekat standar',
+]);
+
+export function medicalServicePercentFor(actionName) {
+  const normalizedName = String(actionName || '')
+    .replace(/\s*\([^)]*\)\s*$/, '')
+    .trim()
+    .toLowerCase();
+  return THIRTY_PERCENT_TREATMENTS.has(normalizedName) ? 30 : 40;
+}
+
 function parseTreatmentLines(treatment) {
-  const medicalServicePercent = 40;
   return String(treatment || '')
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -74,12 +87,13 @@ function parseTreatmentLines(treatment) {
       const staffMatch = line.match(/(?:petugas|asisten|perawat)\s+([^,]+)/i);
       const tariff = tariffMatch ? parseCurrency(tariffMatch[1]) : 0;
       const frequency = frequencyMatch ? Number(frequencyMatch[1]) || 1 : 1;
-      const doctorService = Math.round((tariff * medicalServicePercent) / 100);
       const actionName = line
         .replace(/,\s*frekuensi\s+\d+/i, '')
         .replace(/,\s*(?:petugas|asisten|perawat)\s+[^,]+/i, '')
         .replace(/,\s*tarif\s+Rp\s*[\d.]+/i, '')
         .trim();
+      const medicalServicePercent = medicalServicePercentFor(actionName);
+      const doctorService = Math.round((tariff * medicalServicePercent) / 100);
 
       return {
         actionName,

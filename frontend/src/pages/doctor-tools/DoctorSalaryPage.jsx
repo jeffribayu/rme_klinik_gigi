@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { FileDown } from 'lucide-react';
 import { toast } from 'sonner';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { api } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -47,6 +50,180 @@ function isLateNote(note) {
 
 function attendanceNote(row) {
   return row?.late_note || row?.note || '';
+}
+
+function loadImageDataUrl(src) {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = image.naturalWidth || image.width;
+      canvas.height = image.naturalHeight || image.height;
+      const context = canvas.getContext('2d');
+      context.drawImage(image, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    image.onerror = () => resolve('');
+    image.src = src;
+  });
+}
+
+function periodLabel(month) {
+  const [year, monthNumber] = String(month || '').split('-').map(Number);
+  if (!year || !monthNumber) return month || '-';
+  return new Date(year, monthNumber - 1, 1).toLocaleDateString('id-ID', {
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function amountFromNotes(notes, label) {
+  const line = String(notes || '')
+    .split(/\r?\n/)
+    .find((item) => item.toLowerCase().startsWith(label.toLowerCase()));
+  return line ? Number(line.replace(/[^\d]/g, '')) || 0 : 0;
+}
+
+async function downloadSalarySlipPdf({
+  doctorName,
+  month,
+  attendanceRows = [],
+  actionRows = [],
+  totalShift = 0,
+  totalActionSalary = 0,
+  totalDeduction = 0,
+  grandTotal = 0,
+}) {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 42;
+  const teal = [15, 118, 110];
+  const dark = [30, 41, 59];
+  const muted = [100, 116, 139];
+  const logo = await loadImageDataUrl('/assets/logo.png');
+
+  doc.setFillColor(...teal);
+  doc.rect(0, 0, pageWidth, 104, 'F');
+  if (logo) doc.addImage(logo, 'PNG', margin, 18, 58, 64);
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.text('LINSEA DENTAL CARE', logo ? margin + 76 : margin, 45);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.text('Jl. Batang Hari, Purwosari, Kec. Pelepat Ilir, Kab. Bungo, Jambi', logo ? margin + 76 : margin, 64);
+  doc.text('+62 815-2379-5422', logo ? margin + 76 : margin, 79);
+
+  doc.setTextColor(...dark);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(19);
+  doc.text('SLIP GAJI DOKTER', margin, 140);
+  doc.setFontSize(10);
+  doc.setTextColor(...muted);
+  doc.text(`Periode ${periodLabel(month)}`, pageWidth - margin, 140, { align: 'right' });
+
+  doc.setFillColor(240, 253, 250);
+  doc.roundedRect(margin, 158, pageWidth - margin * 2, 62, 6, 6, 'F');
+  doc.setTextColor(...dark);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('Nama Dokter', margin + 16, 181);
+  doc.text('Jabatan', pageWidth / 2 + 8, 181);
+  doc.setFont('helvetica', 'normal');
+  doc.text(doctorName || '-', margin + 16, 200);
+  doc.text('Dokter Gigi', pageWidth / 2 + 8, 200);
+
+  autoTable(doc, {
+    startY: 240,
+    head: [['Komponen Penghasilan', 'Jumlah']],
+    body: [
+      ['Gaji shift', formatCurrency(totalShift)],
+      ['Jasa dokter dari tindakan', formatCurrency(totalActionSalary)],
+      ['Pengurangan jasa medis', formatCurrency(totalDeduction)],
+    ],
+    foot: [['TOTAL GAJI', formatCurrency(grandTotal)]],
+    theme: 'grid',
+    headStyles: { fillColor: teal, textColor: [255, 255, 255], fontStyle: 'bold' },
+    footStyles: { fillColor: [204, 251, 241], textColor: dark, fontStyle: 'bold' },
+    styles: { fontSize: 9.5, cellPadding: 8, lineColor: [203, 213, 225], textColor: dark },
+    columnStyles: { 1: { halign: 'right', cellWidth: 150 } },
+  });
+
+  let nextY = doc.lastAutoTable.finalY + 24;
+  if (attendanceRows.length) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('Rincian Kehadiran', margin, nextY);
+    autoTable(doc, {
+      startY: nextY + 10,
+      head: [['Tanggal', 'Shift', 'Masuk', 'Pulang', 'Gaji Shift']],
+      body: attendanceRows.map((row) => [
+        prettyDate(row.work_date),
+        shiftLabel(row.shift),
+        formatAttendanceClock(row.check_in),
+        formatAttendanceClock(row.check_out),
+        formatCurrency(SHIFT_SALARY),
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [51, 65, 85], textColor: [255, 255, 255] },
+      styles: { fontSize: 8, cellPadding: 6, lineColor: [226, 232, 240], textColor: dark },
+      columnStyles: { 4: { halign: 'right' } },
+      margin: { left: margin, right: margin },
+    });
+    nextY = doc.lastAutoTable.finalY + 24;
+  }
+
+  if (actionRows.length) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('Rincian Jasa Tindakan', margin, nextY);
+    autoTable(doc, {
+      startY: nextY + 10,
+      head: [['Tanggal', 'Pasien', 'Tindakan', 'Tarif', '%', 'Jasa Dokter']],
+      body: actionRows.map((row) => [
+        prettyDate(row.visit_date),
+        row.patient_name || '-',
+        row.actionName || '-',
+        formatCurrency(row.tariff),
+        `${row.medical_service_percent}%`,
+        formatCurrency(row.doctor_service),
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [51, 65, 85], textColor: [255, 255, 255] },
+      styles: { fontSize: 7.5, cellPadding: 5, lineColor: [226, 232, 240], textColor: dark },
+      columnStyles: {
+        0: { cellWidth: 55 },
+        1: { cellWidth: 76 },
+        2: { cellWidth: 180 },
+        3: { halign: 'right', cellWidth: 66 },
+        4: { halign: 'center', cellWidth: 28 },
+        5: { halign: 'right', cellWidth: 72 },
+      },
+      margin: { left: margin, right: margin },
+    });
+  }
+
+  const pages = doc.getNumberOfPages();
+  for (let page = 1; page <= pages; page += 1) {
+    doc.setPage(page);
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, pageHeight - 38, pageWidth - margin, pageHeight - 38);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...muted);
+    doc.text('Slip ini dibuat otomatis oleh sistem RME Linsea Dental Care.', margin, pageHeight - 22);
+    doc.text(`Halaman ${page} dari ${pages}`, pageWidth - margin, pageHeight - 22, { align: 'right' });
+  }
+
+  const safeDoctorName = String(doctorName || 'dokter')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  const filename = `slip-gaji-${safeDoctorName || 'dokter'}-${month}.pdf`;
+  doc.setProperties({ title: filename });
+  doc.save(filename);
 }
 
 function TableControls() {
@@ -184,10 +361,42 @@ export default function DoctorSalaryPage() {
           `Total pengurangan jasa medis: ${formatCurrency(totalDeduction)}`,
         ].join('\n'),
       });
-      toast.success('Slip gaji tersimpan.');
-      await loadData();
     } catch (e) {
       toast.error(e.response?.data?.message || 'Gagal menyimpan slip gaji');
+      return;
+    }
+
+    try {
+      await downloadSalarySlipPdf({
+        doctorName,
+        month,
+        attendanceRows: paidAttendanceRows,
+        actionRows,
+        totalShift,
+        totalActionSalary,
+        totalDeduction,
+        grandTotal,
+      });
+      toast.success('Slip gaji tersimpan dan PDF berhasil diunduh.');
+    } catch {
+      toast.warning('Slip gaji tersimpan, tetapi PDF gagal diunduh. Gunakan tombol Unduh PDF pada tabel.');
+    }
+    await loadData();
+  };
+
+  const downloadStoredSlip = async (row) => {
+    try {
+      await downloadSalarySlipPdf({
+        doctorName: row.doctor_name,
+        month: String(row.period_month || month).slice(0, 7),
+        totalShift: amountFromNotes(row.notes, 'Total gaji shift'),
+        totalActionSalary: amountFromNotes(row.notes, 'Total gaji tindakan'),
+        totalDeduction: amountFromNotes(row.notes, 'Total pengurangan jasa medis'),
+        grandTotal: Number(row.amount || 0),
+      });
+      toast.success('PDF slip gaji berhasil diunduh.');
+    } catch {
+      toast.error('Gagal membuat PDF slip gaji.');
     }
   };
 
@@ -432,11 +641,12 @@ export default function DoctorSalaryPage() {
                     <th className="border border-slate-200 px-3 py-4 text-left dark:border-slate-800">Nama Dokter</th>
                     <th className="border border-slate-200 px-3 py-4 text-left dark:border-slate-800">Total Gaji</th>
                     <th className="border border-slate-200 px-3 py-4 text-left dark:border-slate-800">Catatan</th>
+                    <th className="border border-slate-200 px-3 py-4 text-left dark:border-slate-800">PDF</th>
                   </tr>
                 </thead>
                 <tbody>
                   {salaryRows.length === 0 ? (
-                    <EmptyRow colSpan={4} />
+                    <EmptyRow colSpan={5} />
                   ) : (
                     salaryRows.map((row) => (
                       <tr key={row.id}>
@@ -444,6 +654,18 @@ export default function DoctorSalaryPage() {
                         <td className="border border-slate-200 px-3 py-3 dark:border-slate-800">{row.doctor_name}</td>
                         <td className="border border-slate-200 px-3 py-3 dark:border-slate-800">{formatCurrency(row.amount)}</td>
                         <td className="whitespace-pre-line border border-slate-200 px-3 py-3 dark:border-slate-800">{row.notes || '-'}</td>
+                        <td className="border border-slate-200 px-3 py-3 dark:border-slate-800">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => downloadStoredSlip(row)}
+                          >
+                            <FileDown className="h-4 w-4" />
+                            Unduh PDF
+                          </Button>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -460,7 +682,7 @@ export default function DoctorSalaryPage() {
                 onClick={generateSlip}
                 disabled={loading}
               >
-                Generate Slip
+                Generate Slip PDF
               </Button>
             </div>
           )}

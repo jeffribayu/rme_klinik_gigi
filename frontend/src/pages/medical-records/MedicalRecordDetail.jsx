@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { FileText, Trash2, Wallet } from 'lucide-react';
+import { FileText, MessageCircle, Trash2, Wallet } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { api } from '@/api/client';
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, formatDate, formatDateISO, publicAssetUrl } from '@/lib/utils';
+import { receiptItemsFromRecord, shareThermalReceipt } from '@/lib/thermalReceipt';
 import { useAuthStore } from '@/store/authStore';
 
 const medicineMarker = 'Pemberian Obat:';
@@ -81,33 +82,6 @@ function statusLabel(value) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function normalizeWaPhone(phone) {
-  const digits = String(phone || '').replace(/[^\d]/g, '');
-  if (!digits) return '';
-  if (digits.startsWith('62')) return digits;
-  if (digits.startsWith('0')) return `62${digits.slice(1)}`;
-  return digits;
-}
-
-function invoiceWhatsAppUrl(mr, payment) {
-  const phone = normalizeWaPhone(mr.patient_phone);
-  if (!phone) return '';
-  const invoiceNo = `INV-${String(payment.id).padStart(5, '0')}`;
-  const text = [
-    `Halo ${mr.patient_name || 'Bapak/Ibu'},`,
-    '',
-    'Pembayaran layanan Linsea Dental Care sudah tercatat lunas.',
-    `No. Invoice: ${invoiceNo}`,
-    `No. Rekam Medis: ${mr.patient_code || '-'}`,
-    `Tanggal kunjungan: ${formatDateISO(mr.visit_date)}`,
-    `Total: ${formatCurrency(payment.total_price)}`,
-    `Metode: ${String(payment.payment_method || '-').toUpperCase()}`,
-    '',
-    'Terima kasih.'
-  ].join('\n');
-  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-}
-
 export default function MedicalRecordDetail() {
   const { id } = useParams();
   const role = useAuthStore((s) => s.user?.role);
@@ -127,6 +101,38 @@ export default function MedicalRecordDetail() {
     load();
   }, [id]);
 
+  const sendReceiptToWhatsApp = async (payment) => {
+    try {
+      const result = await shareThermalReceipt(
+        {
+          paymentId: payment.id,
+          createdAt: payment.created_at,
+          patientName: mr.patient_name,
+          doctorName: mr.doctor_name,
+          items: receiptItemsFromRecord(mr.treatment, mr.notes, payment.total_price),
+          total: payment.total_price,
+        },
+        mr.patient_phone
+      );
+
+      if (result.mode === 'missing-phone') {
+        toast.info('Nomor WhatsApp pasien belum tersedia.');
+      } else if (result.mode === 'shared') {
+        toast.success('Gambar struk siap dibagikan. Pilih WhatsApp dan pasien tujuan.');
+      } else if (result.mode === 'clipboard') {
+        toast.success('Gambar struk sudah disalin. Tempelkan di chat WhatsApp lalu kirim.');
+      } else if (result.mode === 'downloaded') {
+        toast.success('Gambar struk sudah diunduh. Lampirkan gambar tersebut di chat WhatsApp.');
+      }
+
+      if (result.popupBlocked) {
+        toast.error('WhatsApp diblokir browser. Izinkan pop-up lalu coba kembali.');
+      }
+    } catch {
+      toast.error('Gagal membuat gambar struk WhatsApp.');
+    }
+  };
+
   const updatePaymentStatus = async (payment, status) => {
     try {
       const { data } = await api.put(`/api/v1/payments/${payment.id}`, {
@@ -136,13 +142,7 @@ export default function MedicalRecordDetail() {
       });
       toast.success('Status pembayaran diperbarui');
       if (status === 'lunas') {
-        const waUrl = invoiceWhatsAppUrl(mr, data.data || payment);
-        if (waUrl) {
-          window.open(waUrl, '_blank', 'noopener,noreferrer');
-          toast.success('Invoice WhatsApp dibuka. Tekan kirim di WhatsApp.');
-        } else {
-          toast.info('Status lunas. Nomor WhatsApp pasien belum tersedia.');
-        }
+        await sendReceiptToWhatsApp(data.data || payment);
       }
       await load();
     } catch (e) {
@@ -485,10 +485,24 @@ export default function MedicalRecordDetail() {
                   <option value="sebagian">Sebagian</option>
                   <option value="lunas">Lunas</option>
                 </select>
-                <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => printInvoice(py)}>
-                  <FileText className="h-4 w-4" />
-                  Invoice PDF
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  {py.payment_status === 'lunas' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => sendReceiptToWhatsApp(py)}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Kirim Struk WA
+                    </Button>
+                  )}
+                  <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => printInvoice(py)}>
+                    <FileText className="h-4 w-4" />
+                    Invoice PDF
+                  </Button>
+                </div>
               </div>
             ))}
           </CardContent>

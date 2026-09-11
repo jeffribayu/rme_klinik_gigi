@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CreditCard } from 'lucide-react';
+import { CreditCard, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatCurrency, formatDate, formatDateISO, formatDateTime } from '@/lib/utils';
+import { receiptItemsFromRecord, shareThermalReceipt } from '@/lib/thermalReceipt';
 import { useAuthStore } from '@/store/authStore';
 
 function loadImageDataUrl(src) {
@@ -57,33 +58,6 @@ function invoiceTreatmentRows(row, statusLabel) {
     statusLabel(row.payment_method),
     '',
   ]);
-}
-
-function normalizeWaPhone(phone) {
-  const digits = String(phone || '').replace(/[^\d]/g, '');
-  if (!digits) return '';
-  if (digits.startsWith('62')) return digits;
-  if (digits.startsWith('0')) return `62${digits.slice(1)}`;
-  return digits;
-}
-
-function invoiceWhatsAppUrl(row) {
-  const phone = normalizeWaPhone(row.patient_phone);
-  if (!phone) return '';
-  const invoiceNo = `INV-${String(row.id).padStart(5, '0')}`;
-  const text = [
-    `Halo ${row.patient_name || 'Bapak/Ibu'},`,
-    '',
-    'Pembayaran layanan Linsea Dental Care sudah tercatat lunas.',
-    `No. Invoice: ${invoiceNo}`,
-    `No. Rekam Medis: ${row.patient_code || '-'}`,
-    `Tanggal kunjungan: ${formatDateISO(row.visit_date)}`,
-    `Total: ${formatCurrency(row.total_price)}`,
-    `Metode: ${String(row.payment_method || '-').toUpperCase()}`,
-    '',
-    'Terima kasih.'
-  ].join('\n');
-  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
 }
 
 export default function Payments() {
@@ -143,6 +117,38 @@ export default function Payments() {
     })();
   }, [dialogOpen]);
 
+  const sendReceiptToWhatsApp = async (row) => {
+    try {
+      const result = await shareThermalReceipt(
+        {
+          paymentId: row.id,
+          createdAt: row.created_at,
+          patientName: row.patient_name,
+          doctorName: row.doctor_name,
+          items: receiptItemsFromRecord(row.treatment, row.notes, row.total_price),
+          total: row.total_price,
+        },
+        row.patient_phone
+      );
+
+      if (result.mode === 'missing-phone') {
+        toast.info('Nomor WhatsApp pasien belum tersedia.');
+      } else if (result.mode === 'shared') {
+        toast.success('Gambar struk siap dibagikan. Pilih WhatsApp dan pasien tujuan.');
+      } else if (result.mode === 'clipboard') {
+        toast.success('Gambar struk sudah disalin. Tempelkan di chat WhatsApp lalu kirim.');
+      } else if (result.mode === 'downloaded') {
+        toast.success('Gambar struk sudah diunduh. Lampirkan gambar tersebut di chat WhatsApp.');
+      }
+
+      if (result.popupBlocked) {
+        toast.error('WhatsApp diblokir browser. Izinkan pop-up lalu coba kembali.');
+      }
+    } catch {
+      toast.error('Gagal membuat gambar struk WhatsApp.');
+    }
+  };
+
   const submit = async () => {
     try {
       const { data } = await api.post('/api/v1/payments', {
@@ -154,13 +160,7 @@ export default function Payments() {
       toast.success('Pembayaran dicatat');
       const row = data.data;
       if (row?.payment_status === 'lunas') {
-        const waUrl = invoiceWhatsAppUrl(row);
-        if (waUrl) {
-          window.open(waUrl, '_blank', 'noopener,noreferrer');
-          toast.success('Invoice WhatsApp dibuka. Tekan kirim di WhatsApp.');
-        } else {
-          toast.info('Pembayaran lunas. Nomor WhatsApp pasien belum tersedia.');
-        }
+        await sendReceiptToWhatsApp(row);
       }
       setDialogOpen(false);
       load();
@@ -387,9 +387,22 @@ export default function Payments() {
                         {formatDateTime(row.created_at)}
                       </td>
                       <td className="px-6 py-3 text-right">
-                        <Button variant="outline" size="sm" onClick={() => printInvoice(row)}>
-                          Preview PDF
-                        </Button>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {row.payment_status === 'lunas' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-2"
+                              onClick={() => sendReceiptToWhatsApp(row)}
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                              Kirim Struk WA
+                            </Button>
+                          )}
+                          <Button variant="outline" size="sm" onClick={() => printInvoice(row)}>
+                            Preview PDF
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
