@@ -117,12 +117,10 @@ export default function MedicalRecordDetail() {
 
       if (result.mode === 'missing-phone') {
         toast.info('Nomor WhatsApp pasien belum tersedia.');
-      } else if (result.mode === 'shared') {
-        toast.success('Gambar struk siap dibagikan. Pilih WhatsApp dan pasien tujuan.');
       } else if (result.mode === 'clipboard') {
-        toast.success('Gambar struk sudah disalin. Tempelkan di chat WhatsApp lalu kirim.');
+        toast.success('Chat WhatsApp pasien dibuka. Tempelkan gambar struk lalu kirim.');
       } else if (result.mode === 'downloaded') {
-        toast.success('Gambar struk sudah diunduh. Lampirkan gambar tersebut di chat WhatsApp.');
+        toast.success('Chat WhatsApp pasien dibuka. Lampirkan gambar struk yang sudah diunduh.');
       }
 
       if (result.popupBlocked) {

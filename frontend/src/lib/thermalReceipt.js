@@ -96,6 +96,7 @@ export function normalizeWhatsAppPhone(phone) {
   if (!digits) return '';
   if (digits.startsWith('62')) return digits;
   if (digits.startsWith('0')) return `62${digits.slice(1)}`;
+  if (digits.startsWith('8')) return `62${digits}`;
   return digits;
 }
 
@@ -327,24 +328,28 @@ export async function shareThermalReceipt(receiptData, phone) {
   const normalizedPhone = normalizeWhatsAppPhone(phone);
   if (!normalizedPhone) return { mode: 'missing-phone' };
 
-  const canvas = await createThermalReceipt(receiptData);
-  const filename = `kuitansi-${String(receiptData.paymentId || '').padStart(6, '0')}.png`;
-  const file = fileFromCanvas(canvas, filename);
-
-  let canShareFile = false;
+  // Buka tab saat klik masih memiliki user activation agar tidak diblokir
+  // sebagai pop-up setelah proses pembuatan gambar selesai.
+  let whatsappWindow = null;
   try {
-    canShareFile = Boolean(navigator.share && navigator.canShare?.({ files: [file] }));
+    whatsappWindow = window.open('', '_blank');
+    if (whatsappWindow) {
+      whatsappWindow.opener = null;
+      whatsappWindow.document.title = 'Menyiapkan struk WhatsApp';
+      whatsappWindow.document.body.innerHTML = '<p style="font-family:Arial,sans-serif;padding:24px">Menyiapkan gambar struk...</p>';
+    }
   } catch {
-    canShareFile = false;
+    whatsappWindow = null;
   }
 
-  if (canShareFile) {
-    try {
-      await navigator.share({ files: [file], title: 'Kuitansi Pembayaran' });
-      return { mode: 'shared' };
-    } catch (error) {
-      if (error?.name === 'AbortError') return { mode: 'cancelled' };
-    }
+  let file;
+  try {
+    const canvas = await createThermalReceipt(receiptData);
+    const filename = `kuitansi-${String(receiptData.paymentId || '').padStart(6, '0')}.png`;
+    file = fileFromCanvas(canvas, filename);
+  } catch (error) {
+    if (whatsappWindow && !whatsappWindow.closed) whatsappWindow.close();
+    throw error;
   }
 
   let copied = false;
@@ -358,10 +363,12 @@ export async function shareThermalReceipt(receiptData, phone) {
   }
 
   if (!copied) downloadFile(file);
-  const opened = window.open(`https://wa.me/${normalizedPhone}`, '_blank');
-  if (opened) opened.opener = null;
+  const whatsappUrl = `https://wa.me/${normalizedPhone}`;
+  if (whatsappWindow && !whatsappWindow.closed) {
+    whatsappWindow.location.replace(whatsappUrl);
+  }
   return {
     mode: copied ? 'clipboard' : 'downloaded',
-    popupBlocked: !opened,
+    popupBlocked: !whatsappWindow,
   };
 }
