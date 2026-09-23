@@ -439,5 +439,10 @@ router.get(
   authenticate,
   reportController.appointmentsReport
 );
+router.get(
+  '/reports/dental-morbidity',
+  authenticate,
+  reportController.dentalMorbidityReport
+);
 
 export default router;

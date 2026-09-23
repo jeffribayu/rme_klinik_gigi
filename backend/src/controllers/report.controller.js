@@ -1,4 +1,5 @@
 import { query } from '../config/db.js';
+import { buildDentalMorbidityReport } from '../services/dentalMorbidityReport.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 /** Data untuk ekspor PDF/Excel di frontend */
@@ -69,4 +70,34 @@ export const appointmentsReport = asyncHandler(async (req, res) => {
     params
   );
   res.json({ success: true, data: rows });
+});
+
+function selectedReportMonth(value) {
+  if (typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return value;
+  return new Date().toISOString().slice(0, 7);
+}
+
+function nextMonthStart(month) {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const next = new Date(Date.UTC(year, monthNumber, 1));
+  return next.toISOString().slice(0, 10);
+}
+
+export const dentalMorbidityReport = asyncHandler(async (req, res) => {
+  const month = selectedReportMonth(req.query.month);
+  const rows = await query(
+    `SELECT mr.id, mr.patient_id, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date,
+            mr.diagnosis, mr.treatment, mr.notes,
+            p.gender, DATE_FORMAT(p.birth_date, '%Y-%m-%d') AS birth_date,
+            EXISTS(
+              SELECT 1 FROM prescriptions rx WHERE rx.medical_record_id = mr.id
+            ) AS has_prescription
+     FROM medical_records mr
+     JOIN patients p ON p.id = mr.patient_id
+     WHERE mr.visit_date < ?
+     ORDER BY mr.visit_date ASC, mr.id ASC`,
+    [nextMonthStart(month)]
+  );
+
+  res.json({ success: true, data: buildDentalMorbidityReport(rows, month) });
 });
