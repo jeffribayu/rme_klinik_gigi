@@ -62,10 +62,26 @@ function blankSexCount() {
   return { male: 0, female: 0, total: 0 };
 }
 
+function blankAgeSexCount() {
+  return Object.fromEntries(AGE_BANDS.map((band) => [band.key, blankSexCount()]));
+}
+
 function incrementSexCount(target, gender, amount = 1) {
   if (gender === 'L') target.male += amount;
   if (gender === 'P') target.female += amount;
   target.total = target.male + target.female;
+}
+
+function incrementNewCase(row, gender, amount = 1) {
+  if (gender === 'L') row.new_male += amount;
+  if (gender === 'P') row.new_female += amount;
+  row.new_total = row.new_male + row.new_female;
+}
+
+function incrementOldCase(row, gender, amount = 1) {
+  if (gender === 'L') row.old_male += amount;
+  if (gender === 'P') row.old_female += amount;
+  row.old_total = row.old_male + row.old_female;
 }
 
 function parseDateParts(value) {
@@ -94,6 +110,12 @@ function secondaryDiagnosis(notes) {
   return line ? line.replace(/^Diagnosis Sekunder\s*:/i, '').trim() : '';
 }
 
+function diagnosisTexts(record) {
+  return [record.diagnosis, secondaryDiagnosis(record.notes)]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
+}
+
 function normalizeIcdCodes(text) {
   const codes = [];
   const pattern = /\b([A-Z])\.?\s*(\d{2})(?:\.(\d{1,2}))?\b/gi;
@@ -104,12 +126,17 @@ function normalizeIcdCodes(text) {
   return codes;
 }
 
-function diseaseIdsForRecord(record) {
-  const diagnosisText = [record.diagnosis, secondaryDiagnosis(record.notes)].filter(Boolean).join('\n');
+function diseaseIdsForRecord(record, dynamicDiagnosisIds = new Map()) {
+  const texts = diagnosisTexts(record);
+  const diagnosisText = texts.join('\n');
   const codes = normalizeIcdCodes(diagnosisText);
   const ids = new Set();
   for (const definition of DISEASE_DEFINITIONS) {
     if (codes.some((code) => definition.matches(code))) ids.add(definition.id);
+  }
+  for (const code of codes) {
+    const dynamicId = dynamicDiagnosisIds.get(code);
+    if (dynamicId) ids.add(dynamicId);
   }
 
   const lower = diagnosisText.toLowerCase();
@@ -126,9 +153,73 @@ function parseTreatmentLines(treatment) {
     .filter(Boolean)
     .map((line) => {
       const frequency = Math.max(1, Number(line.match(/frekuensi\s*(\d+)/i)?.[1]) || 1);
-      const name = line.replace(/\s*\([^)]*\),\s*frekuensi[\s\S]*$/i, '').trim() || line;
+      const name =
+        line.match(/^(.*?)\s*\([^)]*\),\s*frekuensi/i)?.[1]?.trim() ||
+        line.replace(/,\s*frekuensi[\s\S]*$/i, '').trim() ||
+        line;
       return { name, frequency };
     });
+}
+
+function normalizedName(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLocaleLowerCase('id-ID');
+}
+
+function diagnosisLabel(text, code) {
+  const withoutCode = String(text || '')
+    .replace(new RegExp(`^\\s*${code.replace('.', '\\.?')}\\s*[-:–—]?\\s*`, 'i'), '')
+    .trim();
+  return withoutCode || `Diagnosis ${code}`;
+}
+
+function dynamicDiagnosisDefinitions(records, month) {
+  const definitions = new Map();
+  for (const record of records) {
+    if (!String(record.visit_date || '').startsWith(month)) continue;
+    for (const text of diagnosisTexts(record)) {
+      for (const code of normalizeIcdCodes(text)) {
+        if (DISEASE_DEFINITIONS.some((definition) => definition.matches(code))) continue;
+        if (!definitions.has(code)) {
+          definitions.set(code, {
+            id: `diagnosis:${code}`,
+            name: diagnosisLabel(text, code),
+            icd: code,
+            source: 'diagnosis',
+          });
+        }
+      }
+    }
+  }
+  return [...definitions.values()].sort((a, b) => a.icd.localeCompare(b.icd, 'id-ID'));
+}
+
+function treatmentDefinitions(records, month, treatments) {
+  const definitions = new Map();
+  const add = (name, icd = '') => {
+    const key = normalizedName(name);
+    if (!key || definitions.has(key)) return;
+    definitions.set(key, {
+      id: `treatment:${key}`,
+      name: `Tindakan: ${String(name).trim()}`,
+      treatment_name: String(name).trim(),
+      icd: String(icd || '').trim() || '-',
+      source: 'treatment',
+    });
+  };
+
+  for (const treatment of treatments || []) add(treatment.name, treatment.icd_code);
+  for (const record of records) {
+    if (!String(record.visit_date || '').startsWith(month)) continue;
+    for (const item of parseTreatmentLines(record.treatment)) add(item.name);
+  }
+
+  return [...definitions.values()].sort((a, b) =>
+    a.treatment_name.localeCompare(b.treatment_name, 'id-ID')
+  );
 }
 
 function actionIdForName(name, age) {
@@ -156,13 +247,20 @@ function actionIdForName(name, age) {
   return null;
 }
 
-function createDiseaseRows() {
-  return DISEASE_DEFINITIONS.map((definition) => ({
+function createDiseaseRows(records, month, treatments) {
+  const definitions = [
+    ...DISEASE_DEFINITIONS.map((definition) => ({ ...definition, source: 'disease' })),
+    ...dynamicDiagnosisDefinitions(records, month),
+    ...treatmentDefinitions(records, month, treatments),
+  ];
+  return definitions.map((definition, index) => ({
     id: definition.id,
-    no: definition.no,
+    no: index + 1,
     name: definition.name,
     icd: definition.icd,
-    new_by_age: Object.fromEntries(AGE_BANDS.map((band) => [band.key, 0])),
+    source: definition.source,
+    treatment_name: definition.treatment_name,
+    new_by_age: blankAgeSexCount(),
     new_male: 0,
     new_female: 0,
     new_total: 0,
@@ -178,14 +276,25 @@ function createActivityCounts() {
   );
 }
 
-export function buildDentalMorbidityReport(records, month) {
+export function buildDentalMorbidityReport(records, month, treatments = []) {
   if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('Bulan laporan harus berformat YYYY-MM');
 
-  const diseases = createDiseaseRows();
+  const diseases = createDiseaseRows(records, month, treatments);
   const diseaseById = new Map(diseases.map((row) => [row.id, row]));
+  const dynamicDiagnosisIds = new Map(
+    diseases
+      .filter((row) => row.source === 'diagnosis')
+      .map((row) => [row.icd, row.id])
+  );
+  const treatmentRowByName = new Map(
+    diseases
+      .filter((row) => row.source === 'treatment')
+      .map((row) => [normalizedName(row.treatment_name), row])
+  );
   const activities = createActivityCounts();
   const seenDisease = new Set();
   const seenPatient = new Set();
+  const seenTreatment = new Set();
   const orderedRecords = [...records].sort((a, b) => {
     const dateCompare = String(a.visit_date).localeCompare(String(b.visit_date));
     return dateCompare || Number(a.id || 0) - Number(b.id || 0);
@@ -197,7 +306,8 @@ export function buildDentalMorbidityReport(records, month) {
     const gender = record.gender === 'P' ? 'P' : record.gender === 'L' ? 'L' : '';
     const age = ageAtVisit(record.birth_date, visitDate);
     const patientKey = String(record.patient_id);
-    const diseaseIds = diseaseIdsForRecord(record);
+    const diseaseIds = diseaseIdsForRecord(record, dynamicDiagnosisIds);
+    const treatmentItems = parseTreatmentLines(record.treatment);
 
     for (const diseaseId of diseaseIds) {
       const historyKey = `${patientKey}:${diseaseId}`;
@@ -206,26 +316,40 @@ export function buildDentalMorbidityReport(records, month) {
         const row = diseaseById.get(diseaseId);
         if (isNewCase) {
           const bandKey = ageBandKey(age);
-          if (bandKey) row.new_by_age[bandKey] += 1;
-          if (gender === 'L') row.new_male += 1;
-          if (gender === 'P') row.new_female += 1;
-          row.new_total = row.new_male + row.new_female;
+          if (bandKey) incrementSexCount(row.new_by_age[bandKey], gender);
+          incrementNewCase(row, gender);
         } else {
-          if (gender === 'L') row.old_male += 1;
-          if (gender === 'P') row.old_female += 1;
-          row.old_total = row.old_male + row.old_female;
+          incrementOldCase(row, gender);
         }
       }
       seenDisease.add(historyKey);
     }
 
+    for (const item of treatmentItems) {
+      const treatmentRow = treatmentRowByName.get(normalizedName(item.name));
+      if (!treatmentRow) continue;
+      const historyKey = `${patientKey}:${treatmentRow.id}`;
+      const isNewTreatment = !seenTreatment.has(historyKey);
+      if (inSelectedMonth && gender) {
+        if (isNewTreatment) {
+          const bandKey = ageBandKey(age);
+          if (bandKey) incrementSexCount(treatmentRow.new_by_age[bandKey], gender, item.frequency);
+          incrementNewCase(treatmentRow, gender, item.frequency);
+        } else {
+          incrementOldCase(treatmentRow, gender, item.frequency);
+        }
+      }
+      seenTreatment.add(historyKey);
+    }
+
     if (inSelectedMonth && gender) {
-      incrementSexCount(activities[seenPatient.has(patientKey) ? 'old_visit' : 'new_visit'], gender);
+      const isNewVisit = !seenPatient.has(patientKey);
+      incrementSexCount(activities[isNewVisit ? 'new_visit' : 'old_visit'], gender);
       incrementSexCount(activities.general_visit, gender);
       incrementSexCount(activities.consultation, gender);
 
       let medicationFromTreatment = 0;
-      for (const item of parseTreatmentLines(record.treatment)) {
+      for (const item of treatmentItems) {
         const actionId = actionIdForName(item.name, age);
         if (!actionId) continue;
         if (actionId === 'medication') {
@@ -255,6 +379,7 @@ export function buildDentalMorbidityReport(records, month) {
       'Data penjamin belum tersedia. Seluruh kunjungan dihitung sebagai Kunjungan Umum dan Kunjungan JKN bernilai 0.',
       'Sumber: rekam medis rawat jalan gigi dan mulut pada bulan terpilih.',
       'Pengelompokan penyakit menggunakan kode ICD-10 pada diagnosis primer dan diagnosis sekunder yang tersimpan.',
+      'Baris tindakan berasal dari master tindakan aktif dan tindakan yang tersimpan pada rekam medis; frekuensi tindakan mengikuti nilai pada rekam medis.',
     ],
   };
 }

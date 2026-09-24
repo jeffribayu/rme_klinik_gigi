@@ -85,19 +85,27 @@ function nextMonthStart(month) {
 
 export const dentalMorbidityReport = asyncHandler(async (req, res) => {
   const month = selectedReportMonth(req.query.month);
-  const rows = await query(
-    `SELECT mr.id, mr.patient_id, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date,
-            mr.diagnosis, mr.treatment, mr.notes,
-            p.gender, DATE_FORMAT(p.birth_date, '%Y-%m-%d') AS birth_date,
-            EXISTS(
-              SELECT 1 FROM prescriptions rx WHERE rx.medical_record_id = mr.id
-            ) AS has_prescription
-     FROM medical_records mr
-     JOIN patients p ON p.id = mr.patient_id
-     WHERE mr.visit_date < ?
-     ORDER BY mr.visit_date ASC, mr.id ASC`,
-    [nextMonthStart(month)]
-  );
+  const [rows, treatments] = await Promise.all([
+    query(
+      `SELECT mr.id, mr.patient_id, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date,
+              mr.diagnosis, mr.treatment, mr.notes,
+              p.gender, DATE_FORMAT(p.birth_date, '%Y-%m-%d') AS birth_date,
+              EXISTS(
+                SELECT 1 FROM prescriptions rx WHERE rx.medical_record_id = mr.id
+              ) AS has_prescription
+       FROM medical_records mr
+       JOIN patients p ON p.id = mr.patient_id
+       WHERE mr.visit_date < ?
+       ORDER BY mr.visit_date ASC, mr.id ASC`,
+      [nextMonthStart(month)]
+    ),
+    query(
+      `SELECT name, icd_code
+       FROM treatments
+       WHERE is_active = 1
+       ORDER BY name ASC`
+    ),
+  ]);
 
-  res.json({ success: true, data: buildDentalMorbidityReport(rows, month) });
+  res.json({ success: true, data: buildDentalMorbidityReport(rows, month, treatments) });
 });

@@ -55,13 +55,17 @@ export function receiptItemsFromRecord(treatment, notes, total) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => ({
-      name: line
-        .replace(/\s*\([^)]*\),\s*frekuensi.*$/i, '')
-        .replace(/,\s*frekuensi.*$/i, '')
-        .trim() || 'Tindakan',
-      amount: priceFromText(line),
-    }));
+    .map((line) => {
+      const frequency = Math.max(1, Number(line.match(/frekuensi\s*(\d+)/i)?.[1]) || 1);
+      return {
+        name:
+          line.match(/^(.*?)\s*\([^)]*\),\s*frekuensi/i)?.[1]?.trim() ||
+          line.replace(/,\s*frekuensi.*$/i, '').trim() ||
+          'Tindakan',
+        frequency,
+        amount: priceFromText(line),
+      };
+    });
 
   const medicineText = String(notes || '').split(/Pemberian Obat:/i)[1] || '';
   const medicineItems = medicineText
@@ -70,6 +74,7 @@ export function receiptItemsFromRecord(treatment, notes, total) {
     .filter(Boolean)
     .map((line) => ({
       name: line.replace(/,\s*jumlah.*$/i, '').trim() || 'Obat',
+      frequency: Math.max(1, Number(line.match(/jumlah\s*(\d+)/i)?.[1]) || 1),
       amount: priceFromText(line, 'subtotal'),
     }));
 
@@ -78,13 +83,14 @@ export function receiptItemsFromRecord(treatment, notes, total) {
   const itemTotal = items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   if (!items.length || itemTotal === 0) {
-    return [{ name: 'Layanan klinik', amount: paymentTotal }];
+    return [{ name: 'Layanan klinik', frequency: 1, amount: paymentTotal }];
   }
 
   const difference = paymentTotal - itemTotal;
   if (difference !== 0) {
     items.push({
       name: difference > 0 ? 'Layanan / obat lainnya' : 'Penyesuaian pembayaran',
+      frequency: null,
       amount: difference,
     });
   }
@@ -172,7 +178,7 @@ export async function createThermalReceipt({
   const padding = 42;
   const canvas = document.createElement('canvas');
   canvas.width = width;
-  canvas.height = Math.max(1800, 1320 + items.length * 125);
+  canvas.height = Math.max(1800, 1320 + items.length * 150);
   const context = canvas.getContext('2d');
   context.fillStyle = '#ffffff';
   context.fillRect(0, 0, canvas.width, canvas.height);
@@ -240,6 +246,8 @@ export async function createThermalReceipt({
   context.font = '700 23px Arial, sans-serif';
   context.fillText('No', padding, y);
   context.fillText('Layanan / Tindakan', padding + 65, y);
+  context.textAlign = 'center';
+  context.fillText('Frek.', width - 225, y);
   context.textAlign = 'right';
   context.fillText('Jumlah', width - padding, y);
   context.textAlign = 'left';
@@ -247,14 +255,16 @@ export async function createThermalReceipt({
   drawRule(context, y, width, padding);
   y += 39;
 
-  const safeItems = items.length ? items : [{ name: 'Layanan klinik', amount: total }];
+  const safeItems = items.length ? items : [{ name: 'Layanan klinik', frequency: 1, amount: total }];
   safeItems.forEach((item, index) => {
     context.font = '22px Arial, sans-serif';
     context.fillText(`${index + 1}.`, padding, y);
-    const nameLines = wrappedLines(context, item.name || 'Layanan klinik', 405);
+    const nameLines = wrappedLines(context, item.name || 'Layanan klinik', 330);
     nameLines.forEach((line, lineIndex) => {
       context.fillText(line, padding + 65, y + lineIndex * 30);
     });
+    context.textAlign = 'center';
+    context.fillText(item.frequency == null ? '-' : String(item.frequency), width - 225, y);
     context.textAlign = 'right';
     context.fillText(currency(item.amount), width - padding, y);
     context.textAlign = 'left';

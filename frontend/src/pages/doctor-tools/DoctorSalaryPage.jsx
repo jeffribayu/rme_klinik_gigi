@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FileDown } from 'lucide-react';
+import { FileDown, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -284,6 +284,7 @@ export default function DoctorSalaryPage() {
   const [salaryRows, setSalaryRows] = useState([]);
   const [actionRows, setActionRows] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [deletingSalaryId, setDeletingSalaryId] = useState(null);
 
   const bounds = useMemo(() => monthBounds(month), [month]);
   const selectedDoctor = doctors.find((d) => String(d.id) === String(doctorId));
@@ -397,6 +398,27 @@ export default function DoctorSalaryPage() {
       toast.success('PDF slip gaji berhasil diunduh.');
     } catch {
       toast.error('Gagal membuat PDF slip gaji.');
+    }
+  };
+
+  const deleteStoredSlip = async (row) => {
+    if (role !== 'admin') return;
+    const confirmed = window.confirm(
+      `Hapus slip gaji ${row.doctor_name || 'dokter'} periode ${periodLabel(
+        String(row.period_month || month).slice(0, 7)
+      )}? Data yang dihapus tidak dapat dikembalikan.`
+    );
+    if (!confirmed) return;
+
+    setDeletingSalaryId(row.id);
+    try {
+      await api.delete(`/api/v1/doctor-salaries/${row.id}`);
+      setSalaryRows((current) => current.filter((item) => item.id !== row.id));
+      toast.success('Slip gaji berhasil dihapus.');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Gagal menghapus slip gaji.');
+    } finally {
+      setDeletingSalaryId(null);
     }
   };
 
@@ -641,7 +663,7 @@ export default function DoctorSalaryPage() {
                     <th className="border border-slate-200 px-3 py-4 text-left dark:border-slate-800">Nama Dokter</th>
                     <th className="border border-slate-200 px-3 py-4 text-left dark:border-slate-800">Total Gaji</th>
                     <th className="border border-slate-200 px-3 py-4 text-left dark:border-slate-800">Catatan</th>
-                    <th className="border border-slate-200 px-3 py-4 text-left dark:border-slate-800">PDF</th>
+                    <th className="border border-slate-200 px-3 py-4 text-left dark:border-slate-800">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -655,16 +677,31 @@ export default function DoctorSalaryPage() {
                         <td className="border border-slate-200 px-3 py-3 dark:border-slate-800">{formatCurrency(row.amount)}</td>
                         <td className="whitespace-pre-line border border-slate-200 px-3 py-3 dark:border-slate-800">{row.notes || '-'}</td>
                         <td className="border border-slate-200 px-3 py-3 dark:border-slate-800">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => downloadStoredSlip(row)}
-                          >
-                            <FileDown className="h-4 w-4" />
-                            Unduh PDF
-                          </Button>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-2"
+                              onClick={() => downloadStoredSlip(row)}
+                            >
+                              <FileDown className="h-4 w-4" />
+                              Unduh PDF
+                            </Button>
+                            {role === 'admin' && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:hover:bg-red-950/40"
+                                onClick={() => deleteStoredSlip(row)}
+                                disabled={deletingSalaryId !== null}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                {deletingSalaryId === row.id ? 'Menghapus...' : 'Hapus'}
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
