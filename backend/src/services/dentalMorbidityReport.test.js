@@ -57,9 +57,10 @@ test('mengelompokkan kasus baru/lama, umur, jenis kelamin, dan tindakan', () => 
   assert.equal(caries.old_male, 1);
   assert.equal(caries.new_total, 0);
   assert.equal(persistence.new_female, 1);
-  assert.equal(persistence.new_by_age.age_5_6.female, 1);
+  assert.equal(persistence.new_by_age.age_5_6, 1);
+  assert.equal(persistence.new_by_age_sex.age_5_6.female, 1);
   assert.equal(
-    Object.values(persistence.new_by_age).reduce((sum, value) => sum + value.total, 0),
+    Object.values(persistence.new_by_age).reduce((sum, value) => sum + value, 0),
     persistence.new_total
   );
   assert.equal(gingivitis.new_female, 1);
@@ -78,9 +79,9 @@ test('mengelompokkan kasus baru/lama, umur, jenis kelamin, dan tindakan', () => 
     (row) => row.treatment_name === 'Perawatan Gigi Anak - Exo topikal tanpa penyulit'
   );
   assert.equal(filling.source, 'treatment');
-  assert.equal(filling.new_by_age.age_19_34.male, 2);
+  assert.equal(filling.new_by_age_sex.age_19_34.male, 2);
   assert.equal(filling.new_male, 2);
-  assert.equal(extraction.new_by_age.age_5_6.female, 1);
+  assert.equal(extraction.new_by_age_sex.age_5_6.female, 1);
   assert.equal(extraction.new_total, 1);
 });
 
@@ -104,6 +105,6 @@ test('menambahkan diagnosis di luar 13 kelompok baku ke laporan', () => {
 
   const glossitis = report.diseases.find((row) => row.icd === 'K14.0');
   assert.equal(glossitis.name, 'Glositis');
-  assert.equal(glossitis.new_by_age.age_19_34.female, 1);
+  assert.equal(glossitis.new_by_age_sex.age_19_34.female, 1);
   assert.equal(glossitis.new_total, 1);
 });

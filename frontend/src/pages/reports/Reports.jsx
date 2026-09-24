@@ -112,6 +112,11 @@ function setFormulaCell(sheet, rowNumber, columnNumber, formula, value) {
   sheet[address] = { t: 'n', v: Number(value) || 0, f: formula };
 }
 
+function ageGenderCount(row, key, gender) {
+  const value = row.new_by_age_sex?.[key]?.[gender] ?? row.new_by_age?.[key]?.[gender];
+  return Number(value) || 0;
+}
+
 function writeDentalReportExcel(report) {
   const monthLabel = formatReportMonth(report.month).toUpperCase();
   const ageKeys = report.age_bands.map((band) => band.key);
@@ -125,12 +130,14 @@ function writeDentalReportExcel(report) {
   const oldMaleColumn = ageColumnCount + 7;
   const oldFemaleColumn = ageColumnCount + 8;
   const oldTotalColumn = ageColumnCount + 9;
-  const ageCount = (row, key, gender) => Number(row.new_by_age?.[key]?.[gender]) || 0;
   const diseaseRows = report.diseases.map((row) => [
     row.no,
     row.name,
     row.icd,
-    ...ageKeys.flatMap((key) => [ageCount(row, key, 'male'), ageCount(row, key, 'female')]),
+    ...ageKeys.flatMap((key) => [
+      ageGenderCount(row, key, 'male'),
+      ageGenderCount(row, key, 'female'),
+    ]),
     row.new_male,
     row.new_female,
     row.new_total,
@@ -485,8 +492,8 @@ export default function Reports() {
           row.name,
           row.icd,
           ...data.age_bands.flatMap((band) => [
-            Number(row.new_by_age?.[band.key]?.male) || 0,
-            Number(row.new_by_age?.[band.key]?.female) || 0,
+            ageGenderCount(row, band.key, 'male'),
+            ageGenderCount(row, band.key, 'female'),
           ]),
           row.new_male,
           row.new_female,

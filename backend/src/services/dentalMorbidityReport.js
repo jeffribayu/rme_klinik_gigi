@@ -66,6 +66,10 @@ function blankAgeSexCount() {
   return Object.fromEntries(AGE_BANDS.map((band) => [band.key, blankSexCount()]));
 }
 
+function blankAgeTotalCount() {
+  return Object.fromEntries(AGE_BANDS.map((band) => [band.key, 0]));
+}
+
 function incrementSexCount(target, gender, amount = 1) {
   if (gender === 'L') target.male += amount;
   if (gender === 'P') target.female += amount;
@@ -82,6 +86,12 @@ function incrementOldCase(row, gender, amount = 1) {
   if (gender === 'L') row.old_male += amount;
   if (gender === 'P') row.old_female += amount;
   row.old_total = row.old_male + row.old_female;
+}
+
+function incrementAgeCase(row, bandKey, gender, amount = 1) {
+  if (!bandKey) return;
+  incrementSexCount(row.new_by_age_sex[bandKey], gender, amount);
+  row.new_by_age[bandKey] = row.new_by_age_sex[bandKey].total;
 }
 
 function parseDateParts(value) {
@@ -260,7 +270,10 @@ function createDiseaseRows(records, month, treatments) {
     icd: definition.icd,
     source: definition.source,
     treatment_name: definition.treatment_name,
-    new_by_age: blankAgeSexCount(),
+    // Pertahankan new_by_age sebagai angka agar frontend versi lama tidak
+    // mencetak object sebagai "[object Object]" saat backend diperbarui duluan.
+    new_by_age: blankAgeTotalCount(),
+    new_by_age_sex: blankAgeSexCount(),
     new_male: 0,
     new_female: 0,
     new_total: 0,
@@ -316,7 +329,7 @@ export function buildDentalMorbidityReport(records, month, treatments = []) {
         const row = diseaseById.get(diseaseId);
         if (isNewCase) {
           const bandKey = ageBandKey(age);
-          if (bandKey) incrementSexCount(row.new_by_age[bandKey], gender);
+          incrementAgeCase(row, bandKey, gender);
           incrementNewCase(row, gender);
         } else {
           incrementOldCase(row, gender);
@@ -333,7 +346,7 @@ export function buildDentalMorbidityReport(records, month, treatments = []) {
       if (inSelectedMonth && gender) {
         if (isNewTreatment) {
           const bandKey = ageBandKey(age);
-          if (bandKey) incrementSexCount(treatmentRow.new_by_age[bandKey], gender, item.frequency);
+          incrementAgeCase(treatmentRow, bandKey, gender, item.frequency);
           incrementNewCase(treatmentRow, gender, item.frequency);
         } else {
           incrementOldCase(treatmentRow, gender, item.frequency);
