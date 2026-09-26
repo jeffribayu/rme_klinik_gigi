@@ -66,46 +66,166 @@ const bodyExamFields = [
   'Persendian kaki',
 ];
 
-const diagnosisOptions = [
-  'K02.0 - Karies Enamel',
-  'K02.1 - Karies Dentin',
-  'K04.0 - Pulpitis',
-  'S02.5 - Fraktur Enamel',
-  'K04.1 - Nekrosis Pulpa',
-  'K04.7 - Abses Periapikal Tanpa Sinus',
-  'K04.6 - Abses Periapikal Dengan Sinus',
-  'K08.3 - Sisa Akar / Radix',
-  'K00.6 - Persistensi Gigi Sulung',
-  'K05.2 - Akut Perikoronitis',
-  'K08.1 - Mobility Missing',
-  'K01.1 - Impacted Teeth',
-  'K08.1 - Gigi Ompong / Full Edentulous Partial',
-  'K08.0 - Mobility Karena DM',
-  'K05.0 - Gingivitis Akut',
-  'K05.1 - Gingivitis Kronis',
-  'K05.2 - Periodontitis Akut',
-  'K05.3 - Periodontitis Kronis',
-  'K06.0 - Resesi Gingiva',
-  'K06.1 - Pembesaran Gingiva',
-  'K03.6 - Plak dan Kalkulus',
-  'K00.0 - Anodontia',
-  'K03.1 - Gigi Abrasi',
-  'K03.2 - Gigi Erosi',
-  'K03.4 - Hipersementosis',
-  'K03.5 - Ankilosis',
-  'K13.0 - Penyakit Bibir',
-  'K13.2 - Leukoplakia dan Gangguan Epitel Lidah',
-  'K13.4 - Granuloma dan Lesi Mukosa Oral',
-  'K14.0 - Glositis',
-  'K14.1 - Geographic Tongue / Geografis Lidah',
-  'K12.0 - SAR / Stomatitis Aftosa Rekuren',
-  'K12.0 - Traumatic Ulcer',
-  'K13.0 - Angular Cheilitis',
-  'Oral Ulcer',
-  'K13.2 - Stomatitis Nikotina',
-  'K11.6 - Mukosel',
-  'L30.8 - Bintik Putih',
-  'B37.0 - Oral Thrush',
+const diagnosisGroups = [
+  {
+    title: 'K000 – Kelainan perkembangan dan erupsi gigi',
+    options: [
+      'K00.0 - Anodontia',
+      'K00.1 - Supernumerary teeth',
+      'K00.2 - Abnormalitas bentuk gigi',
+      'K00.3 - Mottled teeth',
+      'K00.4 - Kelainan pembentukan gigi',
+      'K00.5 - Kelainan herediter pada struktur gigi',
+      'K00.6 - Kelainan pada erupsi gigi',
+      'K00.7 - Sindrom teething',
+      'K00.8 - Kelainan lain pada perkembangan gigi',
+      'K00.9 - Kelainan perkembangan gigi, tidak spesifik',
+      'K01.0 - Gigi tertanam',
+      'K01.1 - Gigi impaksi, kecuali gigi lain',
+    ],
+  },
+  {
+    title: 'K020 – Karies gigi',
+    options: [
+      'K02.0 - Karies email',
+      'K02.1 - Karies dentin',
+      'K02.2 - Karies sementum',
+      'K02.3 - Karies tidak aktif',
+      'K02.4 - Kondensasi',
+    ],
+  },
+  {
+    title: 'K030 – Penyakit jaringan keras gigi lainnya',
+    options: [
+      'K03.0 - Gigi atrisi',
+      'K03.1 - Gigi abrasi',
+      'K03.2 - Gigi erosi',
+      'K03.3 - Resorpsi patologis gigi',
+      'K03.4 - Hipersementosis',
+      'K03.5 - Ankylosis',
+      'K03.6 - Deposit',
+      'K03.7 - Perubahan warna pada jaringan keras gigi post erupsi',
+      'K03.8 - Penyakit spesifik lainnya pada jaringan keras gigi',
+      'K03.9 - Penyakit tidak spesifik lainnya pada jaringan keras gigi',
+    ],
+  },
+  {
+    title: 'K040 – Penyakit pulpa dan jaringan periapikal',
+    options: [
+      'K04.0 - Pulpitis',
+      'K04.1 - Nekrosis pulpa',
+      'K04.2 - Degenerasi pulpa',
+      'K04.3 - Pembentukan jaringan keras yang abnormal pada pulpa',
+      'K04.4 - Periodontitis apikal akut yang berasal dari pulpa',
+      'K04.5 - Periodontitis apikal kronis',
+      'K05.6 - Abses periapikal dengan sinus',
+      'K04.7 - Abses periapikal tanpa sinus',
+      'K05.8 - Kista radikular',
+      'K04.9 - Penyakit jaringan pulpa dan periapikal yang tidak spesifik dan lainnya',
+    ],
+  },
+  {
+    title: 'K050 – Gingivitis dan penyakit periodontal',
+    options: [
+      'K05.0 - Gingivitis akut',
+      'K05.1 - Gingivitis kronik',
+      'K05.2 - Periodontitis akut',
+      'K05.3 - Periodontitis kronik',
+      'K05.4 - Periodontosis',
+      'K05.5 - Penyakit periodontal lainnya',
+      'K05.6 - Penyakit periodontal tidak spesifik',
+    ],
+  },
+  {
+    title: 'K060 – Penyakit gingiva dan edentulous ridge',
+    options: [
+      'K06.0 - Resesi gingiva',
+      'K06.1 - Pembesaran gingiva',
+      'K06.2 - Kelainan gingiva dan penyakit alveolar ridge edentulous yang berhubungan trauma',
+    ],
+  },
+  {
+    title: 'K070 – Anomali dentofasial',
+    options: [
+      'K07.0 - Anomali mayor ukuran rahang',
+      'K07.1 - Anomali hubungan rahang',
+      'K07.2 - Anomali hubungan lengkung dan basis kranial',
+      'K07.3 - Anomali posisi gigi',
+      'K07.4 - Maloklusi, tidak spesifik',
+      'K07.5 - Abnormalitas fungsional dentofasial',
+      'K07.6 - Kelainan TMJ',
+    ],
+  },
+  {
+    title: 'K080 – Kelainan gigi dan jaringan penyangga',
+    options: [
+      'K08.0 - Eksfoliasi gigi karena penyebab sistemik',
+      'K08.1 - Kehilangan gigi karena accidental extraction atau penyakit periodontal lokal',
+      'K08.2 - Atrofi alveolar ridge edentulous',
+      'K08.3 - Retained dental root (sisa akar)',
+    ],
+  },
+  {
+    title: 'K090 – Kista daerah mulut',
+    options: [
+      'K09.0 - Kista developmental odontogenik',
+      'K09.1 - Kista developmental (non odontogenik) pada rongga mulut',
+      'K09.2 - Kista rahang lainnya',
+    ],
+  },
+  {
+    title: 'K100 – Penyakit rahang',
+    options: [
+      'K10.0 - Kelainan perkembangan rahang',
+      'K10.1 - Giant Cell Granuloma, Central',
+      'K10.2 - Kondisi inflamasi rahang',
+      'K10.3 - Alveolitis rahang',
+    ],
+  },
+  {
+    title: 'K110 – Penyakit kelenjar ludah',
+    options: [
+      'K11.0 - Atrofi kelenjar ludah',
+      'K11.1 - Hipertrofi kelenjar ludah',
+      'K11.2 - Sialoadenitis',
+      'K11.3 - Abses kelenjar ludah',
+      'K11.4 - Fistula kelenjar ludah',
+      'K11.5 - Sialolithiasis',
+      'K11.6 - Mucocele kelenjar ludah',
+      'K11.7 - Kelainan sekresi ludah',
+      'K11.8 - Penyakit kelenjar ludah lainnya',
+      'K11.9 - Penyakit kelenjar ludah, tidak spesifik',
+      'K12.0 - RAS',
+      'K12.1 - Stomatitis bentuk lain',
+      'K12.2 - Selulitis dan abses rongga mulut',
+    ],
+  },
+  {
+    title: 'K130 – Kelainan pada bibir dan mukosa mulut',
+    options: [
+      'K13.0 - Kelainan pada bibir',
+      'K13.1 - Bibir dan pipi tergigit',
+      'K13.2 - Leukoplakia dan kelainan epitelial oral lainnya termasuk lidah',
+      'K13.3 - Hairy leukoplakia',
+      'K13.4 - Granuloma dan lesi mirip granuloma pada mukosa oral',
+      'K13.5 - Fibrosis submukosis oral',
+      'K13.6 - Hiperplasia iritatif pada mukosa oral',
+      'K13.7 - Lesi mukosa oral tidak spesifik dan lainnya',
+    ],
+  },
+  {
+    title: 'K140 – Penyakit lidah',
+    options: [
+      'K14.0 - Glossitis',
+      'K14.1 - Geographic tongue',
+      'K14.2 - Median rhomboid glossitis',
+      'K14.3 - Hipertrofi papilla lidah',
+      'K14.4 - Atrofi papilla lidah',
+      'K14.5 - Pilated tongue',
+      'K14.6 - Glossidynia',
+      'K14.9 - Penyakit lidah, tidak spesifik',
+    ],
+  },
 ];
 
 function diagnosisIcdCode(value) {
@@ -127,7 +247,7 @@ const defaultAnamnesa = {
   tinggi: '',
   berat: '',
   dokumentasi: '',
-  diagnosisPrimer: 'K05.0 - Gingivitis Akut',
+  diagnosisPrimer: 'K05.0 - Gingivitis akut',
   diagnosisSekunder: '',
   prognosis: '',
   tindakan: '',
@@ -243,7 +363,7 @@ export default function MedicalRecordForm() {
   ]);
   const [treatmentRows, setTreatmentRows] = useState([]);
   const [treatmentDraft, setTreatmentDraft] = useState({
-    diagnosis: 'K05.0 - Gingivitis Akut',
+    diagnosis: 'K05.0 - Gingivitis akut',
     icd: 'K05.0',
     icd9: '',
     tooth: '',
@@ -896,13 +1016,14 @@ export default function MedicalRecordForm() {
                       label="Diagnosis Primer"
                       value={anamnesa.diagnosisPrimer}
                       onChange={(value) => setAnamnesaField('diagnosisPrimer', value)}
-                      options={diagnosisOptions}
+                      groups={diagnosisGroups}
                     />
                     <ModalSelect
                       label="Diagnosis Sekunder"
                       value={anamnesa.diagnosisSekunder}
                       onChange={(value) => setAnamnesaField('diagnosisSekunder', value)}
-                      options={['', ...diagnosisOptions]}
+                      options={['']}
+                      groups={diagnosisGroups}
                     />
                     <ModalSelect
                       label="Prognosis"
@@ -957,10 +1078,14 @@ export default function MedicalRecordForm() {
                         onChange={(e) => applyTreatmentDiagnosis(e.target.value)}
                         className="flex h-10 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:bg-slate-950"
                       >
-                        {diagnosisOptions.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
+                        {diagnosisGroups.map((group) => (
+                          <optgroup key={group.title} label={group.title}>
+                            {group.options.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </optgroup>
                         ))}
                       </select>
                       <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-teal-500 text-[10px] font-bold text-white">
@@ -1646,13 +1771,14 @@ export default function MedicalRecordForm() {
                   }
                   value={anamnesa.diagnosisPrimer}
                   onChange={(value) => setAnamnesaField('diagnosisPrimer', value)}
-                  options={diagnosisOptions}
+                  groups={diagnosisGroups}
                 />
                 <ModalSelect
                   label="Diagnosis Sekunder"
                   value={anamnesa.diagnosisSekunder}
                   onChange={(value) => setAnamnesaField('diagnosisSekunder', value)}
-                  options={['', ...diagnosisOptions]}
+                  options={['']}
+                  groups={diagnosisGroups}
                 />
                 <ModalSelect
                   label="Prognosis"
@@ -1788,7 +1914,7 @@ function ModalTextarea({ label, value, onChange, placeholder }) {
   );
 }
 
-function ModalSelect({ label, value, onChange, options }) {
+function ModalSelect({ label, value, onChange, options = [], groups = [] }) {
   return (
     <div className="grid gap-2 sm:grid-cols-[150px_1fr] sm:items-center">
       <Label className="font-bold">{label}</Label>
@@ -1801,6 +1927,15 @@ function ModalSelect({ label, value, onChange, options }) {
           <option key={option || 'empty'} value={option}>
             {option || 'Pilih'}
           </option>
+        ))}
+        {groups.map((group) => (
+          <optgroup key={group.title} label={group.title}>
+            {group.options.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
     </div>
