@@ -322,7 +322,34 @@ function treatmentTotal(rows) {
 }
 
 function treatmentLine(row) {
+  if (row.originalLine) return row.originalLine;
   return `${row.name} (${row.tooth || '-'}), frekuensi ${row.frequency}, petugas ${row.staff || '-'}, tarif ${formatCurrency(row.price)}`;
+}
+
+function storedTreatmentRows(treatment, { diagnosis, doctor } = {}) {
+  return String(treatment || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      const match = line.match(
+        /^(.*?)\s*\((.*?)\),\s*frekuensi\s*(.*?)(?:,\s*(?:petugas|asisten|perawat)\s*([^,]+))?,\s*tarif\s*(.*)$/i
+      );
+      const rawPrice = match?.[5] || '';
+      return {
+        id: `stored-${index}`,
+        diagnosis: diagnosis || '-',
+        name: match?.[1]?.trim() || line,
+        icd: diagnosisIcdCode(diagnosis) || '-',
+        icd9: '-',
+        tooth: match?.[2]?.trim() || '-',
+        frequency: Math.max(1, Number(match?.[3]) || 1),
+        doctor: doctor || '-',
+        staff: match?.[4]?.trim() || '-',
+        price: Number(String(rawPrice).replace(/[^\d]/g, '')) || 0,
+        originalLine: line,
+      };
+    });
 }
 
 function VitalRow({ label, unit }) {
@@ -552,10 +579,10 @@ export default function MedicalRecordForm() {
           setValue('doctor_id', loggedInDoctorId);
         } else if (presetDoctor) {
           setValue('doctor_id', Number(presetDoctor));
-        } else if (!doctorId && d.data.data[0]) {
+        } else if (!isEdit && !doctorId && d.data.data[0]) {
           setValue('doctor_id', d.data.data[0].id);
         }
-        if (presetPatient) {
+        if (!isEdit && presetPatient) {
           setValue('patient_id', Number(presetPatient));
           const selectedPatient =
             loadedPatients.find((item) => String(item.id) === presetPatient) || null;
@@ -565,7 +592,7 @@ export default function MedicalRecordForm() {
         toast.error('Gagal memuat referensi pemeriksaan');
       }
     })();
-  }, [doctorId, isDoctorRole, loggedInDoctorId, presetPatient, presetDoctor, setValue]);
+  }, [doctorId, isDoctorRole, isEdit, loggedInDoctorId, presetPatient, presetDoctor, setValue]);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -581,6 +608,27 @@ export default function MedicalRecordForm() {
         setValue('treatment', mr.treatment || '');
         setValue('notes', mr.notes || '');
         setValue('visit_date', String(mr.visit_date || '').slice(0, 10));
+        setPatient({
+          id: mr.patient_id,
+          name: mr.patient_name,
+          patient_code: mr.patient_code,
+          birth_date: mr.patient_birth_date,
+          gender: mr.patient_gender,
+          phone: mr.patient_phone,
+          address: mr.patient_address,
+          nik: mr.patient_nik,
+        });
+        setTreatmentRows(
+          storedTreatmentRows(mr.treatment, {
+            diagnosis: mr.diagnosis,
+            doctor: mr.doctor_name,
+          })
+        );
+        setTreatmentDraft((prev) => ({
+          ...prev,
+          diagnosis: mr.diagnosis || prev.diagnosis,
+          icd: diagnosisIcdCode(mr.diagnosis) || prev.icd,
+        }));
         const oldNotes = mr.notes || '';
         const bloodPressure = stripSuffix(noteLineValue(oldNotes, 'Tekanan Darah'), 'mmHg');
         const [oldSistole = '', oldDiastole = ''] = bloodPressure.split('/').map((part) => part.trim());
@@ -622,9 +670,10 @@ export default function MedicalRecordForm() {
   }, [id, isDoctorRole, isEdit, loggedInDoctorId, navigate, setValue]);
 
   useEffect(() => {
+    if (isEdit) return;
     const found = patients.find((item) => Number(item.id) === Number(patientId));
     setPatient(found || null);
-  }, [patientId, patients]);
+  }, [isEdit, patientId, patients]);
 
   const selectedTreatment = treatmentCatalog.find(
     (item) => String(item.id) === String(treatmentDraft.treatmentId)
@@ -865,27 +914,29 @@ export default function MedicalRecordForm() {
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6">
-            <div className="mb-5 grid gap-3 md:grid-cols-3">
-              <div className="space-y-2">
-                <Label>Pasien</Label>
-                <select
-                  value={patientId ? String(patientId) : ''}
-                  onChange={(e) => setValue('patient_id', Number(e.target.value))}
-                  className="flex h-10 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:bg-slate-950"
-                  disabled={Boolean(presetPatient)}
-                  required
-                >
-                  <option value="">Pilih pasien</option>
-                  {patients.map((p) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {p.patient_code} - {p.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.patient_id && (
-                  <p className="text-xs text-red-600">{errors.patient_id.message}</p>
-                )}
-              </div>
+            <div className={`mb-5 grid gap-3 ${isEdit ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
+              {!isEdit && (
+                <div className="space-y-2">
+                  <Label>Pasien</Label>
+                  <select
+                    value={patientId ? String(patientId) : ''}
+                    onChange={(e) => setValue('patient_id', Number(e.target.value))}
+                    className="flex h-10 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:bg-slate-950"
+                    disabled={Boolean(presetPatient)}
+                    required
+                  >
+                    <option value="">Pilih pasien</option>
+                    {patients.map((p) => (
+                      <option key={p.id} value={String(p.id)}>
+                        {p.patient_code} - {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.patient_id && (
+                    <p className="text-xs text-red-600">{errors.patient_id.message}</p>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Dokter</Label>
@@ -1269,6 +1320,7 @@ export default function MedicalRecordForm() {
                               <p className="text-xs text-muted-foreground">
                                 ICD-X: {row.icd} - ICD-IX CM: {row.icd9}
                               </p>
+                              <p className="text-xs text-muted-foreground">Frekuensi: {row.frequency}</p>
                               <p className="text-xs text-muted-foreground">Tarif: {formatCurrency(row.price)}</p>
                             </td>
                             <td className="border border-slate-200 px-3 py-3 text-right dark:border-slate-800">
