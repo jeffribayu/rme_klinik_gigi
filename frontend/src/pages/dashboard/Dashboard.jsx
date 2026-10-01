@@ -345,7 +345,7 @@ export default function Dashboard() {
             <div className="pointer-events-none absolute -bottom-10 left-6 h-24 w-24 rounded-full bg-pink-200/25 blur-2xl" />
             <CardHeader className="relative flex min-h-[58px] flex-row items-start justify-between gap-3 pb-2">
               <CardTitle className="pt-1 text-sm font-semibold leading-tight text-white/85">
-                {role === 'admin' ? 'Pendapatan bulan ini' : 'Kunjungan bulan ini'}
+                {role === 'admin' ? 'Total Pendapatan' : 'Kunjungan bulan ini'}
               </CardTitle>
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/20 shadow-inner ring-1 ring-white/25">
                 <TrendingUp className="h-5 w-5 text-white" />
@@ -353,7 +353,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="relative mt-auto pt-0">
               <p className="truncate text-3xl font-bold leading-none">
-                {role === 'admin' ? formatCurrency(stats?.monthlyRevenue) : stats?.totalMedicalRecords ?? 0}
+                {role === 'admin' ? formatCurrency(stats?.totalRevenue) : stats?.totalMedicalRecords ?? 0}
               </p>
               <p className="mt-2 text-xs leading-4 text-white/75">
                 {role === 'admin' ? 'Akumulasi pembayaran lunas' : 'Rekam medis tersimpan'}

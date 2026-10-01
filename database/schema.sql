@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   appointment_date DATETIME NOT NULL,
   queue_number INT UNSIGNED NOT NULL DEFAULT 1,
   status ENUM('menunggu', 'proses', 'selesai', 'batal') NOT NULL DEFAULT 'menunggu',
+  notes TEXT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_appt_patient FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
   CONSTRAINT fk_appt_doctor FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE RESTRICT,

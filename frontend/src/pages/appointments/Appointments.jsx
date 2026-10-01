@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -139,6 +140,7 @@ export default function Appointments() {
     patient_id: presetPatient,
     doctor_id: '',
     appointment_date: `${date}T09:00`,
+    notes: '',
     status: 'menunggu',
   });
 
@@ -164,7 +166,7 @@ export default function Appointments() {
   useEffect(() => {
     if (presetPatient && canWrite) {
       setOpen(true);
-      setForm((f) => ({ ...f, patient_id: presetPatient }));
+      setForm((f) => ({ ...f, patient_id: presetPatient, notes: '' }));
     }
   }, [presetPatient, canWrite]);
 
@@ -260,6 +262,7 @@ export default function Appointments() {
         patient_id: Number(form.patient_id),
         doctor_id: Number(form.doctor_id),
         appointment_date: form.appointment_date.replace('T', ' ').slice(0, 19),
+        notes: form.notes.trim() || null,
         status: form.status,
       });
       toast.success('Pasien masuk antrian');
@@ -337,7 +340,12 @@ export default function Appointments() {
                     type="button"
                     className="h-9 rounded bg-blue-600 px-3 shadow-none hover:bg-blue-700"
                     onClick={() => {
-                      setForm((f) => ({ ...f, patient_id: '', appointment_date: `${date}T09:00` }));
+                      setForm((f) => ({
+                        ...f,
+                        patient_id: '',
+                        appointment_date: `${date}T09:00`,
+                        notes: '',
+                      }));
                       setDialogPatientSearch('');
                       setOpen(true);
                     }}
@@ -469,7 +477,9 @@ export default function Appointments() {
                             <p>Poli:</p>
                             <p className="font-bold">Poliklinik 1</p>
                             <p>Catatan:</p>
-                            <p className="font-bold">SCALING</p>
+                            <p className="whitespace-pre-wrap break-words font-bold">
+                              {a.notes?.trim() || '-'}
+                            </p>
                             <p>Riwayat Alergi:</p>
                             <p>{a.patient_blood_type ? `Gol. darah ${a.patient_blood_type}` : '-'}</p>
                           </div>
@@ -723,6 +733,17 @@ export default function Appointments() {
                   />
                 </div>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="booking-notes">Catatan</Label>
+              <Textarea
+                id="booking-notes"
+                value={form.notes}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                placeholder="Masukkan catatan jadwal pasien"
+                maxLength={2000}
+                className="min-h-[88px] resize-y"
+              />
             </div>
             <div className="space-y-2">
               <Label>Status awal</Label>

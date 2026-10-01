@@ -38,7 +38,7 @@ export const listAppointments = asyncHandler(async (req, res) => {
   const rows = await query(
     `SELECT a.id, a.patient_id, a.doctor_id,
             DATE_FORMAT(a.appointment_date, '%Y-%m-%d %H:%i:%s') AS appointment_date,
-            a.queue_number, a.status, a.created_at,
+            a.queue_number, a.status, a.notes, a.created_at,
             p.name AS patient_name, p.patient_code, p.phone AS patient_phone,
             p.gender AS patient_gender, p.birth_date AS patient_birth_date,
             p.address AS patient_address, p.blood_type AS patient_blood_type,
@@ -55,7 +55,7 @@ export const listAppointments = asyncHandler(async (req, res) => {
 });
 
 export const createAppointment = asyncHandler(async (req, res) => {
-  const { patient_id, doctor_id, appointment_date, status } = req.body;
+  const { patient_id, doctor_id, appointment_date, status, notes } = req.body;
 
   const pool = getPool();
   const conn = await pool.getConnection();
@@ -64,9 +64,9 @@ export const createAppointment = asyncHandler(async (req, res) => {
     const qn = await nextQueueNumber(conn, appointment_date, doctor_id);
 
     const [ins] = await conn.execute(
-      `INSERT INTO appointments (patient_id, doctor_id, appointment_date, queue_number, status)
-       VALUES (?, ?, ?, ?, ?)`,
-      [patient_id, doctor_id, appointment_date, qn, status || 'menunggu']
+      `INSERT INTO appointments (patient_id, doctor_id, appointment_date, queue_number, status, notes)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [patient_id, doctor_id, appointment_date, qn, status || 'menunggu', notes || null]
     );
 
     await conn.commit();
@@ -74,7 +74,7 @@ export const createAppointment = asyncHandler(async (req, res) => {
     const rows = await query(
       `SELECT a.id, a.patient_id, a.doctor_id,
               DATE_FORMAT(a.appointment_date, '%Y-%m-%d %H:%i:%s') AS appointment_date,
-              a.queue_number, a.status, a.created_at,
+              a.queue_number, a.status, a.notes, a.created_at,
               p.name AS patient_name, p.patient_code, p.phone AS patient_phone,
               p.gender AS patient_gender, p.birth_date AS patient_birth_date,
               p.address AS patient_address, p.blood_type AS patient_blood_type,
@@ -97,20 +97,27 @@ export const createAppointment = asyncHandler(async (req, res) => {
 
 export const updateAppointment = asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
-  const { patient_id, doctor_id, appointment_date, status } = req.body;
+  const { patient_id, doctor_id, appointment_date, status, notes } = req.body;
 
-  const existing = await query('SELECT id FROM appointments WHERE id = ?', [id]);
+  const existing = await query('SELECT id, notes FROM appointments WHERE id = ?', [id]);
   if (!existing.length) throw new AppError('Appointment tidak ditemukan', 404);
 
   await execute(
-    `UPDATE appointments SET patient_id = ?, doctor_id = ?, appointment_date = ?, status = ? WHERE id = ?`,
-    [patient_id, doctor_id, appointment_date, status, id]
+    `UPDATE appointments SET patient_id = ?, doctor_id = ?, appointment_date = ?, status = ?, notes = ? WHERE id = ?`,
+    [
+      patient_id,
+      doctor_id,
+      appointment_date,
+      status,
+      notes === undefined ? existing[0].notes : notes || null,
+      id,
+    ]
   );
 
   const rows = await query(
     `SELECT a.id, a.patient_id, a.doctor_id,
             DATE_FORMAT(a.appointment_date, '%Y-%m-%d %H:%i:%s') AS appointment_date,
-            a.queue_number, a.status, a.created_at,
+            a.queue_number, a.status, a.notes, a.created_at,
             p.name AS patient_name, p.patient_code, p.phone AS patient_phone,
             p.gender AS patient_gender, p.birth_date AS patient_birth_date,
             p.address AS patient_address, p.blood_type AS patient_blood_type,
@@ -137,7 +144,7 @@ export const updateAppointmentStatus = asyncHandler(async (req, res) => {
   const rows = await query(
     `SELECT a.id, a.patient_id, a.doctor_id,
             DATE_FORMAT(a.appointment_date, '%Y-%m-%d %H:%i:%s') AS appointment_date,
-            a.queue_number, a.status, a.created_at,
+            a.queue_number, a.status, a.notes, a.created_at,
             p.name AS patient_name, p.patient_code, p.phone AS patient_phone,
             p.gender AS patient_gender, p.birth_date AS patient_birth_date,
             p.address AS patient_address, p.blood_type AS patient_blood_type,

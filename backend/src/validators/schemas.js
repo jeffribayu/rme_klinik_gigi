@@ -91,6 +91,7 @@ export const appointmentSchema = z.object({
   patient_id: z.coerce.number().int().positive(),
   doctor_id: z.coerce.number().int().positive(),
   appointment_date: z.string(),
+  notes: z.string().trim().max(2000).optional().nullable(),
   status: z
     .enum(['menunggu', 'proses', 'selesai', 'batal'])
     .optional()

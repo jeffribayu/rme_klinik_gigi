@@ -169,6 +169,33 @@ async function ensureDoctorsTableAndBackfill() {
   }
 }
 
+/** Tabel jadwal dan kolom catatan untuk instalasi baru maupun lama. */
+async function ensureAppointmentsSchema() {
+  await execute(`CREATE TABLE IF NOT EXISTS appointments (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    patient_id INT UNSIGNED NOT NULL,
+    doctor_id INT UNSIGNED NOT NULL,
+    appointment_date DATETIME NOT NULL,
+    queue_number INT UNSIGNED NOT NULL DEFAULT 1,
+    status ENUM('menunggu', 'proses', 'selesai', 'batal') NOT NULL DEFAULT 'menunggu',
+    notes TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_appt_patient FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+    CONSTRAINT fk_appt_doctor FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE RESTRICT,
+    INDEX idx_appt_date (appointment_date),
+    INDEX idx_appt_status (status)
+  ) ENGINE=InnoDB`);
+
+  const cols = await query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'appointments'`
+  );
+  const names = new Set(cols.map((c) => c.COLUMN_NAME));
+  if (!names.has('notes')) {
+    await execute(`ALTER TABLE appointments ADD COLUMN notes TEXT NULL AFTER status`);
+  }
+}
+
 /** Absensi + penggajian dokter (setara migration_002 bagian dokter). */
 async function ensureDoctorPayrollTables() {
   await execute(`CREATE TABLE IF NOT EXISTS doctor_attendance (
@@ -437,6 +464,7 @@ export async function ensureAppSchema() {
   await ensureUsersAuthColumns();
   await ensurePatientsSchema();
   await ensureDoctorsTableAndBackfill();
+  await ensureAppointmentsSchema();
   await ensureMedicinesSchema();
   await ensureTreatmentsSchema();
   await ensureDoctorPayrollTables();
