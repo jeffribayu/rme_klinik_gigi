@@ -66,6 +66,18 @@ const THIRTY_PERCENT_TREATMENTS = new Set([
   'tindakan orthodonsia - behel cekat keramik',
   'tindakan orthodonsia - behel cekat self ligating',
   'tindakan orthodonsia - behel cekat standar',
+  'tindakan prostodonti - crown/bridge pfm',
+  'tindakan prostodonti - crown/bridge/veneer emax',
+  'tindakan prostodonti - crown/bridge/veneer zirconia',
+  'tindakan prostodonti - gigi tiruan lengkap akrilik ra dan rb',
+  'tindakan prostodonti - gigi tiruan lengkap akrilik ra/rb',
+  'tindakan prostodonti - gigi tiruan lengkap thermosen ra dan rb',
+  'tindakan prostodonti - gigi tiruan lengkap thermosen ra/rb',
+  'tindakan prostodonti - plat gigi tiruan bahan akrilik tipe 1 bilateral',
+  'tindakan prostodonti - plat gigi tiruan bahan akrilik tipe 1 unilateral',
+  'tindakan prostodonti - plat gigi tiruan bahan valpas bilateral',
+  'tindakan prostodonti - plat gigi tiruan bahan valpas unilateral',
+  'tindakan prostodonti - plat gigi tiruan bahan thermosen bilateral',
 ]);
 
 export function medicalServicePercentFor(actionName) {
