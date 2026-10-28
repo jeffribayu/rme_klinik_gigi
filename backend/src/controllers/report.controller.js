@@ -43,7 +43,8 @@ export const paymentsReport = asyncHandler(async (req, res) => {
 export const medicalRecordsReport = asyncHandler(async (req, res) => {
   const params = [];
   const rows = await query(
-    `SELECT mr.id, mr.visit_date, mr.complaint, mr.diagnosis, mr.treatment, mr.notes, mr.created_at,
+    `SELECT mr.id, DATE_FORMAT(mr.visit_date, '%Y-%m-%d') AS visit_date,
+            mr.complaint, mr.diagnosis, mr.treatment, mr.notes, mr.created_at,
             p.patient_code, p.name AS patient_name, p.gender AS patient_gender,
             p.birth_date AS patient_birth_date, p.phone AS patient_phone,
             d.name AS doctor_name

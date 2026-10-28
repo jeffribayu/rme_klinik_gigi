@@ -47,7 +47,7 @@ export const listAppointments = asyncHandler(async (req, res) => {
      JOIN patients p ON p.id = a.patient_id
      JOIN doctors d ON d.id = a.doctor_id
      ${where}
-     ORDER BY a.appointment_date ASC, a.queue_number ASC`,
+     ORDER BY DATE(a.appointment_date) ASC, TIME(a.appointment_date) ASC, a.id ASC`,
     params
   );
 

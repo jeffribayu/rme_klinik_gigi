@@ -106,7 +106,17 @@ export const paymentSchema = z.object({
   medical_record_id: z.coerce.number().int().positive(),
   total_price: z.coerce.number().nonnegative(),
   payment_method: z
-    .enum(['tunai', 'kartu', 'transfer', 'qris', 'lainnya'])
+    .enum([
+      'tunai',
+      'kartu',
+      'transfer',
+      'transfer_bri',
+      'transfer_mandiri',
+      'transfer_bca',
+      'transfer_bni',
+      'qris',
+      'lainnya',
+    ])
     .optional()
     .default('tunai'),
   payment_status: z
@@ -162,7 +172,17 @@ export const toothUpsertSchema = z.object({
 
 export const paymentUpdateSchema = z.object({
   total_price: z.coerce.number().nonnegative(),
-  payment_method: z.enum(['tunai', 'kartu', 'transfer', 'qris', 'lainnya']),
+  payment_method: z.enum([
+    'tunai',
+    'kartu',
+    'transfer',
+    'transfer_bri',
+    'transfer_mandiri',
+    'transfer_bca',
+    'transfer_bni',
+    'qris',
+    'lainnya',
+  ]),
   payment_status: z.enum(['belum_bayar', 'lunas', 'sebagian']),
 });
 

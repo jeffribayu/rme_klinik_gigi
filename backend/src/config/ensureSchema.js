@@ -196,6 +196,17 @@ async function ensureAppointmentsSchema() {
   }
 }
 
+/** Metode pembayaran disimpan sebagai teks agar pilihan bank dapat dikembangkan. */
+async function ensurePaymentsSchema() {
+  const [methodColumn] = await query(`SHOW COLUMNS FROM payments LIKE 'payment_method'`);
+  if (methodColumn?.Type?.toLowerCase().startsWith('enum(')) {
+    await execute(
+      `ALTER TABLE payments
+       MODIFY COLUMN payment_method VARCHAR(50) NOT NULL DEFAULT 'tunai'`
+    );
+  }
+}
+
 /** Absensi + penggajian dokter (setara migration_002 bagian dokter). */
 async function ensureDoctorPayrollTables() {
   await execute(`CREATE TABLE IF NOT EXISTS doctor_attendance (
@@ -465,6 +476,7 @@ export async function ensureAppSchema() {
   await ensurePatientsSchema();
   await ensureDoctorsTableAndBackfill();
   await ensureAppointmentsSchema();
+  await ensurePaymentsSchema();
   await ensureMedicinesSchema();
   await ensureTreatmentsSchema();
   await ensureDoctorPayrollTables();

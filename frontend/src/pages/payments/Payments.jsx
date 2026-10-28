@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { CreditCard, MessageCircle } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -9,25 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { formatCurrency, formatDate, formatDateISO, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDateISO, formatDateTime } from '@/lib/utils';
+import { paymentMethodLabel } from '@/lib/paymentMethods';
 import { receiptItemsFromRecord, shareThermalReceipt } from '@/lib/thermalReceipt';
-import { useAuthStore } from '@/store/authStore';
 
 function loadImageDataUrl(src) {
   return new Promise((resolve) => {
@@ -46,7 +29,7 @@ function loadImageDataUrl(src) {
   });
 }
 
-function invoiceTreatmentRows(row, statusLabel) {
+function invoiceTreatmentRows(row) {
   const lines = String(row.treatment || '')
     .split('\n')
     .map((line) => line.trim())
@@ -55,26 +38,14 @@ function invoiceTreatmentRows(row, statusLabel) {
   return descriptions.map((description) => [
     description,
     formatDateISO(row.visit_date),
-    statusLabel(row.payment_method),
+    paymentMethodLabel(row.payment_method),
     '',
   ]);
 }
 
 export default function Payments() {
-  const role = useAuthStore((s) => s.user?.role);
-  const canWrite = role === 'admin' || role === 'doctor' || role === 'nurse';
-
-  const [params, setParams] = useSearchParams();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [mrList, setMrList] = useState([]);
-  const [form, setForm] = useState({
-    medical_record_id: '',
-    total_price: '',
-    payment_method: 'tunai',
-    payment_status: 'belum_bayar',
-  });
 
   const load = async () => {
     setLoading(true);
@@ -91,31 +62,6 @@ export default function Payments() {
   useEffect(() => {
     load();
   }, []);
-
-  useEffect(() => {
-    if (params.get('new') === '1' && params.get('mr')) {
-      setForm((f) => ({
-        ...f,
-        medical_record_id: params.get('mr'),
-      }));
-      setDialogOpen(true);
-      const next = new URLSearchParams(params);
-      next.delete('new');
-      setParams(next, { replace: true });
-    }
-  }, [params, setParams]);
-
-  useEffect(() => {
-    if (!dialogOpen) return;
-    (async () => {
-      try {
-        const { data } = await api.get('/api/v1/medical-records');
-        setMrList(data.data || []);
-      } catch {
-        toast.error('Gagal memuat daftar rekam medis');
-      }
-    })();
-  }, [dialogOpen]);
 
   const sendReceiptToWhatsApp = async (row) => {
     try {
@@ -147,26 +93,6 @@ export default function Payments() {
     }
   };
 
-  const submit = async () => {
-    try {
-      const { data } = await api.post('/api/v1/payments', {
-        medical_record_id: Number(form.medical_record_id),
-        total_price: Number(form.total_price),
-        payment_method: form.payment_method,
-        payment_status: form.payment_status,
-      });
-      toast.success('Pembayaran dicatat');
-      const row = data.data;
-      if (row?.payment_status === 'lunas') {
-        await sendReceiptToWhatsApp(row);
-      }
-      setDialogOpen(false);
-      load();
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Gagal menyimpan');
-    }
-  };
-
   const statusLabel = (value) =>
     String(value || '-')
       .replace('_', ' ')
@@ -195,7 +121,7 @@ export default function Payments() {
       year: 'numeric',
     });
     const logoDataUrl = await loadImageDataUrl('/assets/logo.png');
-    const detailRows = invoiceTreatmentRows(row, statusLabel);
+    const detailRows = invoiceTreatmentRows(row);
     detailRows[detailRows.length - 1][3] = formatCurrency(row.total_price);
 
     doc.setFillColor(...teal);
@@ -235,7 +161,7 @@ export default function Payments() {
     doc.setFont('helvetica', 'normal');
     doc.text(`Tanggal invoice: ${issuedAt}`, pageWidth / 2 + 16, 158);
     doc.text(`Tanggal kunjungan: ${formatDateISO(row.visit_date)}`, pageWidth / 2 + 16, 174);
-    doc.text(`Metode: ${statusLabel(row.payment_method)}`, pageWidth / 2 + 16, 190);
+    doc.text(`Metode: ${paymentMethodLabel(row.payment_method)}`, pageWidth / 2 + 16, 190);
 
     const statusColor =
       row.payment_status === 'lunas'
@@ -312,27 +238,11 @@ export default function Payments() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Pembayaran</h1>
           <p className="text-muted-foreground">Tagihan dan status pembayaran.</p>
         </div>
-        {canWrite && (
-          <Button
-            onClick={() => {
-              setForm({
-                medical_record_id: '',
-                total_price: '',
-                payment_method: 'tunai',
-                payment_status: 'belum_bayar',
-              });
-              setDialogOpen(true);
-            }}
-          >
-            <CreditCard className="mr-2 h-4 w-4" />
-            Catat pembayaran
-          </Button>
-        )}
       </div>
 
       <Card>
@@ -367,7 +277,7 @@ export default function Payments() {
                         <div className="text-xs text-muted-foreground">{row.patient_code}</div>
                       </td>
                       <td className="px-6 py-3">{formatCurrency(row.total_price)}</td>
-                      <td className="px-6 py-3 capitalize">{row.payment_method}</td>
+                      <td className="px-6 py-3">{paymentMethodLabel(row.payment_method)}</td>
                       <td className="px-6 py-3">
                         <Badge
                           variant={
@@ -416,97 +326,6 @@ export default function Payments() {
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Pembayaran baru</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-3 py-2">
-            <div className="space-y-2">
-              <Label>Kunjungan (ID rekam medis)</Label>
-              <Select
-                value={
-                  form.medical_record_id ? String(form.medical_record_id) : undefined
-                }
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, medical_record_id: v }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih pasien dan tanggal kunjungan…" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[min(320px,70vh)]">
-                  {mrList.map((mr) => (
-                    <SelectItem key={mr.id} value={String(mr.id)}>
-                      ID {mr.id} — {mr.patient_name} ({mr.patient_code}) —{' '}
-                      {formatDate(mr.visit_date)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Bukan kode pasien</span> seperti 0004.
-                Pilih baris di atas (ID per kunjungan), atau dari halaman detail rekam medis tombol
-                &quot;Catat pembayaran&quot; agar ID terisi otomatis. Angka ID sama dengan bagian
-                terakhir URL{' '}
-                <code className="rounded bg-muted px-1">/medical-records/5</code> → ID 5.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label>Total (Rp)</Label>
-              <Input
-                type="number"
-                value={form.total_price}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, total_price: e.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Metode</Label>
-              <Select
-                value={form.payment_method}
-                onValueChange={(v) => setForm((f) => ({ ...f, payment_method: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tunai">Tunai</SelectItem>
-                  <SelectItem value="kartu">Kartu</SelectItem>
-                  <SelectItem value="transfer">Transfer</SelectItem>
-                  <SelectItem value="qris">QRIS</SelectItem>
-                  <SelectItem value="lainnya">Lainnya</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={form.payment_status}
-                onValueChange={(v) => setForm((f) => ({ ...f, payment_status: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="belum_bayar">Belum bayar</SelectItem>
-                  <SelectItem value="sebagian">Sebagian</SelectItem>
-                  <SelectItem value="lunas">Lunas</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Tutup
-            </Button>
-            <Button onClick={submit} disabled={!form.medical_record_id || !form.total_price}>
-              Simpan
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

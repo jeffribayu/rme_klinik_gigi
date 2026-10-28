@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS payments (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   medical_record_id INT UNSIGNED NOT NULL,
   total_price DECIMAL(14, 2) NOT NULL DEFAULT 0,
-  payment_method ENUM('tunai', 'kartu', 'transfer', 'qris', 'lainnya') NOT NULL DEFAULT 'tunai',
+  payment_method VARCHAR(50) NOT NULL DEFAULT 'tunai',
   payment_status ENUM('belum_bayar', 'lunas', 'sebagian') NOT NULL DEFAULT 'belum_bayar',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_pay_mr FOREIGN KEY (medical_record_id) REFERENCES medical_records(id) ON DELETE CASCADE,

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, formatDate, formatDateISO, publicAssetUrl } from '@/lib/utils';
+import { PAYMENT_METHOD_OPTIONS, paymentMethodLabel } from '@/lib/paymentMethods';
 import { receiptItemsFromRecord, shareThermalReceipt } from '@/lib/thermalReceipt';
 import { useAuthStore } from '@/store/authStore';
 
@@ -87,6 +88,7 @@ export default function MedicalRecordDetail() {
   const role = useAuthStore((s) => s.user?.role);
   const canEdit = role === 'admin' || role === 'doctor';
   const [mr, setMr] = useState(null);
+  const [savingPaymentId, setSavingPaymentId] = useState(null);
 
   const load = async () => {
     try {
@@ -131,20 +133,28 @@ export default function MedicalRecordDetail() {
     }
   };
 
-  const updatePaymentStatus = async (payment, status) => {
+  const updatePayment = async (payment, patch) => {
+    const nextPayment = { ...payment, ...patch };
     try {
+      setSavingPaymentId(payment.id);
       const { data } = await api.put(`/api/v1/payments/${payment.id}`, {
         total_price: Number(payment.total_price),
-        payment_method: payment.payment_method,
-        payment_status: status,
+        payment_method: nextPayment.payment_method,
+        payment_status: nextPayment.payment_status,
       });
-      toast.success('Status pembayaran diperbarui');
-      if (status === 'lunas') {
-        await sendReceiptToWhatsApp(data.data || payment);
+      toast.success(
+        patch.payment_method
+          ? 'Metode pembayaran diperbarui'
+          : 'Status pembayaran diperbarui'
+      );
+      if (patch.payment_status === 'lunas' && payment.payment_status !== 'lunas') {
+        await sendReceiptToWhatsApp(data.data || nextPayment);
       }
       await load();
     } catch (e) {
-      toast.error(e.response?.data?.message || 'Gagal mengubah status pembayaran');
+      toast.error(e.response?.data?.message || 'Gagal mengubah pembayaran');
+    } finally {
+      setSavingPaymentId(null);
     }
   };
 
@@ -258,7 +268,7 @@ export default function MedicalRecordDetail() {
     doc.setFont('helvetica', 'normal');
     doc.text(`Tanggal invoice: ${issuedAt}`, pageWidth / 2 + 16, 158);
     doc.text(`Tanggal kunjungan: ${formatDateISO(mr.visit_date)}`, pageWidth / 2 + 16, 174);
-    doc.text(`Metode: ${statusLabel(payment.payment_method)}`, pageWidth / 2 + 16, 190);
+    doc.text(`Metode: ${paymentMethodLabel(payment.payment_method)}`, pageWidth / 2 + 16, 190);
 
     doc.setTextColor(...dark);
     doc.setFont('helvetica', 'bold');
@@ -461,7 +471,9 @@ export default function MedicalRecordDetail() {
               >
                 <div>
                   <p className="font-semibold">{formatCurrency(py.total_price)}</p>
-                  <p className="text-xs capitalize text-muted-foreground">{py.payment_method}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {paymentMethodLabel(py.payment_method)}
+                  </p>
                 </div>
                 <Badge
                   variant={
@@ -474,15 +486,36 @@ export default function MedicalRecordDetail() {
                 >
                   {py.payment_status.replace('_', ' ')}
                 </Badge>
-                <select
-                  value={py.payment_status}
-                  onChange={(e) => updatePaymentStatus(py, e.target.value)}
-                  className="h-9 rounded border border-input bg-background px-3 text-sm capitalize"
-                >
-                  <option value="belum_bayar">Belum bayar</option>
-                  <option value="sebagian">Sebagian</option>
-                  <option value="lunas">Lunas</option>
-                </select>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="space-y-1">
+                    <span className="block text-xs font-medium text-muted-foreground">Metode</span>
+                    <select
+                      value={py.payment_method}
+                      onChange={(e) => updatePayment(py, { payment_method: e.target.value })}
+                      disabled={savingPaymentId === py.id}
+                      className="h-9 rounded border border-input bg-background px-3 text-sm disabled:opacity-60"
+                    >
+                      {PAYMENT_METHOD_OPTIONS.map((method) => (
+                        <option key={method.value} value={method.value}>
+                          {method.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="block text-xs font-medium text-muted-foreground">Status</span>
+                    <select
+                      value={py.payment_status}
+                      onChange={(e) => updatePayment(py, { payment_status: e.target.value })}
+                      disabled={savingPaymentId === py.id}
+                      className="h-9 rounded border border-input bg-background px-3 text-sm capitalize disabled:opacity-60"
+                    >
+                      <option value="belum_bayar">Belum bayar</option>
+                      <option value="sebagian">Sebagian</option>
+                      <option value="lunas">Lunas</option>
+                    </select>
+                  </label>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {py.payment_status === 'lunas' && (
                     <Button

@@ -126,7 +126,6 @@ export default function Appointments() {
   const [paymentFilter, setPaymentFilter] = useState('semua');
   const [patientSearch, setPatientSearch] = useState('');
   const [codeSearch, setCodeSearch] = useState('');
-  const [sortOrder, setSortOrder] = useState('oldest');
   const [pageSize, setPageSize] = useState('5');
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -223,11 +222,12 @@ export default function Appointments() {
     filtered.sort((a, b) => {
       const av = parseAppointmentDate(a.appointment_date).getTime();
       const bv = parseAppointmentDate(b.appointment_date).getTime();
-      return sortOrder === 'oldest' ? av - bv : bv - av;
+      if (av !== bv) return av - bv;
+      return Number(a.id) - Number(b.id);
     });
 
     return filtered.slice(0, Number(pageSize));
-  }, [list, tab, patientSearch, codeSearch, sortOrder, pageSize]);
+  }, [list, tab, patientSearch, codeSearch, pageSize]);
 
   const selectablePatients = useMemo(() => {
     const q = dialogPatientSearch.trim().toLowerCase();
@@ -307,7 +307,6 @@ export default function Appointments() {
     setPaymentFilter('semua');
     setPatientSearch('');
     setCodeSearch('');
-    setSortOrder('oldest');
   };
 
   return (
@@ -547,15 +546,9 @@ export default function Appointments() {
             <aside className="space-y-5 text-sm">
               <div>
                 <Label className="mb-2 block font-bold">Urutkan</Label>
-                <Select value={sortOrder} onValueChange={setSortOrder}>
-                  <SelectTrigger className="h-10 rounded bg-white dark:bg-slate-950">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="oldest">Waktu terlama</SelectItem>
-                    <SelectItem value="newest">Waktu terbaru</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="rounded border border-input bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                  Jam booking (paling awal)
+                </div>
               </div>
 
               <div>
