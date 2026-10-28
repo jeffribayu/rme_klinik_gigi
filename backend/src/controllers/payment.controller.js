@@ -92,3 +92,14 @@ export const updatePayment = asyncHandler(async (req, res) => {
 
   res.json({ success: true, data: rows[0] });
 });
+
+export const deletePayment = asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  const result = await execute('DELETE FROM payments WHERE id = ?', [id]);
+
+  if (!result.affectedRows) {
+    throw new AppError('Pembayaran tidak ditemukan', 404);
+  }
+
+  res.json({ success: true, message: 'Pembayaran berhasil dihapus' });
+});

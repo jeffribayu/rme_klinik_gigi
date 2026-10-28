@@ -292,6 +292,12 @@ router.put(
   validateBody(paymentUpdateSchema),
   paymentController.updatePayment
 );
+router.delete(
+  '/payments/:id',
+  authenticate,
+  authorize('admin'),
+  paymentController.deletePayment
+);
 
 /** ----- Medicines (master obat) ----- */
 router.get(

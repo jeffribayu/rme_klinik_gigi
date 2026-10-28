@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, formatDateISO, formatDateTime } from '@/lib/utils';
 import { paymentMethodLabel } from '@/lib/paymentMethods';
 import { receiptItemsFromRecord, shareThermalReceipt } from '@/lib/thermalReceipt';
+import { useAuthStore } from '@/store/authStore';
 
 function loadImageDataUrl(src) {
   return new Promise((resolve) => {
@@ -44,8 +45,10 @@ function invoiceTreatmentRows(row) {
 }
 
 export default function Payments() {
+  const role = useAuthStore((state) => state.user?.role);
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingPaymentId, setDeletingPaymentId] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -90,6 +93,28 @@ export default function Payments() {
       }
     } catch {
       toast.error('Gagal membuat gambar struk WhatsApp.');
+    }
+  };
+
+  const deletePayment = async (row) => {
+    const invoiceNumber = `INV-${String(row.id).padStart(5, '0')}`;
+    if (
+      !window.confirm(
+        `Hapus pembayaran ${invoiceNumber} milik ${row.patient_name}? Tindakan ini tidak dapat dibatalkan.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setDeletingPaymentId(row.id);
+      await api.delete(`/api/v1/payments/${row.id}`);
+      toast.success('Pembayaran berhasil dihapus');
+      await load();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Gagal menghapus pembayaran');
+    } finally {
+      setDeletingPaymentId(null);
     }
   };
 
@@ -266,7 +291,7 @@ export default function Payments() {
                     <th className="px-6 py-3 font-medium">Metode</th>
                     <th className="px-6 py-3 font-medium">Status</th>
                     <th className="px-6 py-3 font-medium">Waktu</th>
-                    <th className="px-6 py-3 text-right font-medium">Invoice</th>
+                    <th className="px-6 py-3 text-right font-medium">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -310,6 +335,19 @@ export default function Payments() {
                           <Button variant="outline" size="sm" onClick={() => printInvoice(row)}>
                             Preview PDF
                           </Button>
+                          {role === 'admin' && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-2 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950"
+                              onClick={() => deletePayment(row)}
+                              disabled={deletingPaymentId === row.id}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              {deletingPaymentId === row.id ? 'Menghapus...' : 'Hapus'}
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
